@@ -6,6 +6,7 @@ and provide structured incident response recommendations.
 """
 
 import os
+import sys
 from typing import List, Tuple, Optional
 
 import gradio as gr
@@ -14,6 +15,10 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_huggingface import HuggingFacePipeline
+
+# Add src directory to path for vector RAG import
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+from rag.vector_rag import create_vector_rag, VectorRAG
 
 
 # Configuration
@@ -258,22 +263,30 @@ def render_flow_diagram(actions_map: dict) -> str:
     return ''.join(svg_parts)
 
 
-# Initialize model and chain
+# Initialize model, chain, and vector RAG
 print("Loading cybersecurity model...")
 llm = build_llm()
 chain = build_chain(llm)
 print("Model loaded successfully!")
 
+print("Initializing vector RAG...")
+vector_rag = create_vector_rag(kb_path="./knowledge_base", model_name="all-MiniLM-L6-v2")
+print("Vector RAG initialized successfully!")
+
 
 def assess_threat(threat: str, context: str) -> Tuple[str, str]:
-    """Run threat assessment and return text + HTML."""
+    """Run threat assessment with vector RAG and return text + HTML."""
     if not threat.strip():
         return "Please provide a threat description.", "<p>No assessment generated.</p>"
     
-    # Run assessment
+    # Retrieve relevant context using vector RAG
+    retrieved_context = vector_rag.retrieve_context(threat, context)
+    
+    # Run assessment with retrieved context
     result = chain.invoke({
         "threat": threat.strip(),
-        "context": context.strip() or "No additional context provided"
+        "context": context.strip() or "No additional context provided",
+        "retrieved": retrieved_context
     })
     
     # Generate HTML report
@@ -284,8 +297,8 @@ def assess_threat(threat: str, context: str) -> Tuple[str, str]:
 
 # Gradio UI
 with gr.Blocks(title="Cyber Threat Assessment", theme=gr.themes.Soft(primary_hue="blue")) as demo:
-    gr.Markdown("# 🛡️ Cyber Threat Assessment Agent")
-    gr.Markdown("Describe a cybersecurity threat to receive a structured assessment with severity analysis and actionable recommendations.")
+    gr.Markdown("# 🛡️ Cyber Threat Assessment Agent with Vector RAG")
+    gr.Markdown("Describe a cybersecurity threat to receive a structured assessment with severity analysis and actionable recommendations. Uses semantic similarity search over knowledge base for enhanced context.")
     
     with gr.Row():
         threat_input = gr.Textbox(

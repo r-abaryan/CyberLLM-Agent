@@ -2,3 +2,5 @@ dataset_prep/
 Other/
 output/
 reports/
+src/rag/__pycache__/vector_rag.cpython-312.pyc
+src/rag/vector_rag_explained.py

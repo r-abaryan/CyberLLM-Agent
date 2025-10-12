@@ -1,6 +1,6 @@
-# Cybersecurity SFT Fine-tuning
+# CyberXP Agent: Streamlined Cyber Threat Assessment Powered by LLaMA & Retrieval-Augmented Generation (RAG)
 
-Direct SFT training on the provided dataset from kaggle of Huggingface using Llama-3.2-1B-Instruct.
+Direct SFT training on the provided dataset from kaggle or Huggingface using Llama-3.2-1B-Instruct.
 
 ## Quick Start
 
@@ -61,15 +61,24 @@ Built-in severity levels with consistent rationale:
 - High: likely compromise or sensitive data risk, material impact
 - Critical: widespread compromise or major impact; immediate escalation
 
-### Retrieval-Augmented Generation (RAG)
+### Vector-based Retrieval-Augmented Generation (RAG)
 
-Drop security notes, playbooks, or standards into ./knowledge_base (Markdown or text). The agent retrieves relevant snippets and injects them as context.
+Drop security notes, playbooks, or standards into ./knowledge_base (Markdown or text). The agent uses semantic similarity search to retrieve relevant context.
 
 How it works:
 - Model remains the decision-maker
-- Keyword/Jaccard retriever selects high-signal passages
+- Sentence transformers encode documents and queries into embeddings
+- Cosine similarity finds semantically relevant passages
 - Retrieved content shown as "Relevant knowledge" for grounding
-- Improves specificity while keeping everything local
+- Much better context matching than keyword search
+
+### Vector RAG Features
+
+- **Semantic Search**: Uses sentence transformers for meaning-based retrieval
+- **Similarity Scoring**: Shows confidence scores for retrieved documents
+- **Configurable Thresholds**: Adjust minimum similarity and number of results
+- **Multiple Models**: Support for different sentence transformer models
+- **Dynamic Updates**: Add new documents without full re-encoding
 
 ### REST API
 
@@ -126,6 +135,42 @@ Steps:
 2. Upload gradio_app.py, requirements.txt, and knowledge_base/
 3. Set MODEL_PATH in gradio_app.py to your model repo or local path
 4. Space auto-builds and serves at port 7860
+
+## Available Features
+
+### Current Implementation
+- **Fine-tuned Model**: Llama-3.2-1B-Instruct specialized for cybersecurity
+- **CLI Agent**: Command-line interface for threat assessment
+- **Interactive Mode**: Conversational threat analysis
+- **Vector RAG**: Semantic similarity search over knowledge base
+- **HTML Reports**: Styled assessment reports with visualizations
+- **REST API**: FastAPI endpoint for integration
+- **HF Spaces**: Gradio web interface deployment
+- **Severity Rubric**: Consistent threat classification
+- **Structured Outputs**: Standardized response format
+
+## Roadmap: From Fine-tuning to Agentic AI
+
+### Phase 1: Foundation (Current)
+1. **Model Fine-tuning**: Llama-3.2-1B-Instruct → Cybersecurity specialist
+2. **Basic Agent**: LangChain wrapper with structured prompting
+3. **Knowledge Integration**: RAG with local playbooks and procedures
+4. **Output Generation**: HTML reports with visualizations
+
+### Phase 2: Multi-Agent Architecture (Planned)
+5. **Specialized Agents**: Triage, Analysis, Containment, Forensics
+6. **Agent Orchestration**: Communication protocols and routing
+7. **Decision Trees**: Automated agent selection and coordination
+8. **Feedback Loops**: Continuous learning from analyst input
+
+### Phase 3: Production Integration (Future)
+9. **External Connectors**: SIEM/SOAR integration (Splunk, QRadar)
+10. **Threat Intelligence**: Real-time feeds (VirusTotal, OTX, MISP)
+11. **Automated Response**: Containment and isolation procedures
+12. **Multi-modal Analysis**: Logs, network traffic, file samples
+13. **Behavioral Profiling**: User/entity anomaly detection
+14. **Compliance Reporting**: Audit trails and regulatory compliance
+15. **Continuous Learning**: Model retraining on new threats
 
 ## Technical Notes
 
