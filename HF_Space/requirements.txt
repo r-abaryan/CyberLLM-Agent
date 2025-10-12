@@ -1,0 +1,12 @@
+gradio>=4.31.0
+torch>=2.0.0
+transformers>=4.30.0
+accelerate>=0.20.0
+safetensors>=0.4.0
+
+# LangChain integration used by the app
+langchain>=0.2.11
+langchain-community>=0.2.10
+langchain-huggingface>=0.0.3
+
+
