@@ -1,6 +1,6 @@
 # CyberXP Agent: Streamlined Cyber Threat Assessment Powered by LLaMA & Retrieval-Augmented Generation (RAG)
 
-Direct SFT training on the provided dataset from kaggle or Huggingface using Llama-3.2-1B-Instruct.
+Direct SFT training on cybersecurity datasets using Llama-3.2-1B-Instruct with vector-based RAG for enhanced threat assessment.
 
 ## Quick Start
 
@@ -11,38 +11,17 @@ Direct SFT training on the provided dataset from kaggle or Huggingface using Lla
 
 2. Run SFT fine-tuning:
    ```bash
-   python cyberllm_sft.py
+   python src/cyberllm_sft.py
    ```
 
-## Model Configuration
-
-- **Base Model**: Meta/Llama-3.2-1B-Instruct
-- **Training Method**: Supervised Fine-tuning (SFT) with SFTTrainer
-- **Dataset**: Provided local dataset or alternatives
-- **Training**: 7 epochs, learning rate 3e-5, batch size 12 [adjust the parameters accordingly]
-
-
-## Output
-
-- **Model**: ./cyberllm_sft_model
-- **Training Logs**: Console output with progress
-- **Checkpoints**: Saved every 1000 steps
-
-## Cyber Threat Assessment Agent
-
-Run incident-response style assessments using your fine-tuned model.
-
-### CLI Usage
-
-One-off assessment:
-```bash
-python cyber_agent.py --threat "Suspicious PowerShell downloads from unknown IPs" --context "Windows domain, EDR present"
-```
-
-Interactive mode:
-```bash
-python cyber_agent.py
-```
+3. Use the agent:
+   ```bash
+   # Normal RAG (keyword-based)
+   python src/cyber_agent.py --threat "Suspicious PowerShell downloads" --context "Windows domain"
+   
+   # Vector RAG (semantic similarity)
+   python src/cyber_agent_vec.py --threat "Suspicious PowerShell downloads" --context "Windows domain"
+   ```
 
 ### Options
 
@@ -53,13 +32,18 @@ python cyber_agent.py
 - `--simple` uses simplified sections: Severity, Immediate Actions, Recovery, Preventive Measures
 - `--save_html` saves HTML report to specified path
 
-### Severity Rubric
+## Available Features
 
-Built-in severity levels with consistent rationale:
-- Low: contained, minimal business impact, easy mitigation
-- Medium: limited spread or exposure, moderate remediation effort
-- High: likely compromise or sensitive data risk, material impact
-- Critical: widespread compromise or major impact; immediate escalation
+### Current Implementation
+- **Fine-tuned Model**: Llama-3.2-1B-Instruct specialized for cybersecurity
+- **CLI Agent**: Command-line interface for threat assessment
+- **Interactive Mode**: Conversational threat analysis
+- **Vector RAG**: Semantic similarity search over knowledge base
+- **HTML Reports**: Styled assessment reports with visualizations
+- **REST API**: FastAPI endpoint for integration
+- **HF Spaces**: Gradio web interface deployment
+- **Severity Rubric**: Consistent threat classification
+- **Structured Outputs**: Standardized response format
 
 ### Vector-based Retrieval-Augmented Generation (RAG)
 
@@ -87,11 +71,6 @@ Serve the agent as an API for tools, dashboards, or automation.
 Run the server:
 ```bash
 uvicorn cyber_api:app --host 0.0.0.0 --port 8000 --workers 1
-```
-
-Health check:
-```bash
-curl http://localhost:8000/health
 ```
 
 Assess a threat:
@@ -124,30 +103,11 @@ HTML includes:
 
 Deploy to HF Spaces using the Gradio app in HF_Space/ folder.
 
-Files needed:
-- gradio_app.py (UI)
-- requirements.txt (includes gradio, langchain-huggingface, transformers)
-- knowledge_base/ folder
-- cyberllm_sft_model/ or model repo reference
-
 Steps:
 1. Create new Gradio Space under your HF account
 2. Upload gradio_app.py, requirements.txt, and knowledge_base/
 3. Set MODEL_PATH in gradio_app.py to your model repo or local path
 4. Space auto-builds and serves at port 7860
-
-## Available Features
-
-### Current Implementation
-- **Fine-tuned Model**: Llama-3.2-1B-Instruct specialized for cybersecurity
-- **CLI Agent**: Command-line interface for threat assessment
-- **Interactive Mode**: Conversational threat analysis
-- **Vector RAG**: Semantic similarity search over knowledge base
-- **HTML Reports**: Styled assessment reports with visualizations
-- **REST API**: FastAPI endpoint for integration
-- **HF Spaces**: Gradio web interface deployment
-- **Severity Rubric**: Consistent threat classification
-- **Structured Outputs**: Standardized response format
 
 ## Roadmap: From Fine-tuning to Agentic AI
 
@@ -176,6 +136,6 @@ Steps:
 
 - Uses langchain-huggingface integration (no deprecation warnings)
 - Structured outputs with consistent section headers
-- Local RAG with keyword/Jaccard retrieval
+- Vector RAG with semantic similarity search
 - HTML visualization with SVG flow diagrams
 - FastAPI endpoint for integration
