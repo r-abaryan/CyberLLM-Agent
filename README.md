@@ -1,95 +1,78 @@
 # Cybersecurity SFT Fine-tuning
 
-Direct SFT training on the `AlicanKiraz0/Cybersecurity-Dataset-v1` dataset.
+Direct SFT training on the provided dataset from kaggle of Huggingface using Llama-3.2-1B-Instruct.
 
 ## Quick Start
 
-1. **Install dependencies:**
+1. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Run SFT fine-tuning:**
+2. Run SFT fine-tuning:
    ```bash
    python cyberllm_sft.py
    ```
 
 ## Model Configuration
 
--   **Base Model**: `Qwen/Qwen2.5-0.5B-Instruct`
--   **Training Method**: Supervised Fine-tuning (SFT) with SFTTrainer
--   **Dataset**: `AlicanKiraz0/Cybersecurity-Dataset-v1` (Real cybersecurity Q&A)
--   **Format**: Instruction + Response (high-quality cybersecurity content)
--   **Training**: 7 epochs, learning rate 3e-5, batch size 12
+- **Base Model**: Meta/Llama-3.2-1B-Instruct
+- **Training Method**: Supervised Fine-tuning (SFT) with SFTTrainer
+- **Dataset**: Provided local dataset or alternatives
+- **Training**: 7 epochs, learning rate 3e-5, batch size 12 [adjust the parameters accordingly]
 
-## Dataset Information
-
-The `AlicanKiraz0/Cybersecurity-Dataset-v1` dataset contains:
-- High-quality cybersecurity Q&A pairs
-- Expert-level explanations
-- Comprehensive coverage of security topics
-- Professional instruction-response format
-- Thousands of examples for robust training
 
 ## Output
 
-- **Model**: `./cyberllm_sft_model`
+- **Model**: ./cyberllm_sft_model
 - **Training Logs**: Console output with progress
 - **Checkpoints**: Saved every 1000 steps
 
-## Cyber Threat Assessment Agent (LangChain)
+## Cyber Threat Assessment Agent
 
-Run an incident-response style assessment using your fine-tuned local model.
+Run incident-response style assessments using your fine-tuned model.
 
-1. Install/update dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### CLI Usage
 
-2. CLI usage (one-off):
-   ```bash
-   python cyber_agent.py --threat "Suspicious PowerShell downloads from unknown IPs" --context "Windows domain, EDR present"
-   ```
+One-off assessment:
+```bash
+python cyber_agent.py --threat "Suspicious PowerShell downloads from unknown IPs" --context "Windows domain, EDR present"
+```
 
-3. Interactive mode:
-   ```bash
-   python cyber_agent.py
-   ```
+Interactive mode:
+```bash
+python cyber_agent.py
+```
 
-Options:
-- `--model_path` (default `./cyberllm_sft_model`)
-- `--device` (default `auto`)
-- `--kb_path` (default `./knowledge_base`) points to local `.md`/`.txt` files used for retrieval
+### Options
 
-### Severity rubric (built-in)
-The agent ranks severity using a simple, repeatable rubric and explains why:
+- `--model_path` (default ./cyberllm_sft_model)
+- `--device` (default auto)
+- `--kb_path` (default ./knowledge_base) points to local .md/.txt files used for retrieval
+- `--public_kb` includes knowledge_base/PUBLIC_KB.md into retrieval
+- `--simple` uses simplified sections: Severity, Immediate Actions, Recovery, Preventive Measures
+- `--save_html` saves HTML report to specified path
+
+### Severity Rubric
+
+Built-in severity levels with consistent rationale:
 - Low: contained, minimal business impact, easy mitigation
 - Medium: limited spread or exposure, moderate remediation effort
 - High: likely compromise or sensitive data risk, material impact
 - Critical: widespread compromise or major impact; immediate escalation
 
-This makes outputs consistent across analysts and easier to automate.
+### Retrieval-Augmented Generation (RAG)
 
-### Guardrails for complete outputs
-Outputs are structured with the same section headers every time:
-`Summary`, `Severity`, `Indicators`, `Immediate Actions`, `Containment`, `Eradication`, `Recovery`, `Preventive Measures`.
-If any section would be missing, the agent appends a small placeholder so you can spot gaps quickly.
+Drop security notes, playbooks, or standards into ./knowledge_base (Markdown or text). The agent retrieves relevant snippets and injects them as context.
 
-### Lightweight Retrieval-Augmented Generation (RAG)
-You can drop security notes, playbooks, or standards into `./knowledge_base` (Markdown or text). The agent retrieves the most relevant snippets and injects them into the prompt as context. No external services required.
+How it works:
+- Model remains the decision-maker
+- Keyword/Jaccard retriever selects high-signal passages
+- Retrieved content shown as "Relevant knowledge" for grounding
+- Improves specificity while keeping everything local
 
-How it works with your current model:
-- The model remains the decision-maker. RAG simply provides additional, domain-relevant text next to your threat description.
-- A keyword/Jaccard retriever selects a few high-signal passages. These are shown to the model as "Relevant knowledge (retrieved)" so it can ground recommendations without changing the model weights.
-- This improves specificity (e.g., org standards, tool names, network segments) while keeping everything fully local.
+### REST API
 
-Suggested uses for the KB:
-- Internal severity definitions, escalation matrices
-- Network maps or naming conventions
-- EDR/AV policy notes, blocked lists, allowlists
-- Incident playbooks and communication templates
-
-### REST API (FastAPI)
 Serve the agent as an API for tools, dashboards, or automation.
 
 Run the server:
@@ -112,33 +95,42 @@ curl -s -X POST http://localhost:8000/assess \
   }'
 ```
 
-The response includes the structured assessment with severity, actions, and preventive measures.
+### HTML Reports
 
-### HTML Report (optional)
-Generate a styled HTML report from the assessment for sharing.
+Generate styled HTML reports from assessments.
 
-Python usage:
-```python
-from cyber_agent import render_html_report
-html = render_html_report(assessment_text, title="Threat Assessment - Case 001")
-with open("assessment.html", "w", encoding="utf-8") as f:
-    f.write(html)
-```
-
-CLI auto-save during assessment:
+CLI auto-save:
 ```bash
 python cyber_agent.py --threat "Suspicious PowerShell download" \
   --context "Windows estate; Defender enabled" \
   --kb_path "./knowledge_base" \
-  --save_html "./reports" 
+  --save_html "./reports"
 ```
 
-The HTML includes:
-- Linear Steps view for `Immediate Actions` with numbered badges.
-- Flow Diagram: inline SVG showing left-to-right sequence (Assess → Gather Info → Immediate Actions) and branches (Containment, Eradication, Recovery, Preventive Measures).
+HTML includes:
+- Linear Steps view for Immediate Actions with numbered badges
+- Flow Diagram: inline SVG showing left-to-right sequence
 
-Notes:
-- Uses `langchain-huggingface` integration (no deprecation warning).
-- Optional: `--public_kb` includes `knowledge_base/PUBLIC_KB.md` into retrieval for added grounding.
+### Hugging Face Spaces
 
-& C:/Users/rasou/miniconda3/python.exe d:/AI-ML/CyberXP/cyber_agent.py --threat "Instagram account get hacked" --context "Multiple unkown email"  --kb_path "./knowledge_base" --public_kb --simple --save_html "./reports"
+Deploy to HF Spaces using the Gradio app in HF_Space/ folder.
+
+Files needed:
+- gradio_app.py (UI)
+- requirements.txt (includes gradio, langchain-huggingface, transformers)
+- knowledge_base/ folder
+- cyberllm_sft_model/ or model repo reference
+
+Steps:
+1. Create new Gradio Space under your HF account
+2. Upload gradio_app.py, requirements.txt, and knowledge_base/
+3. Set MODEL_PATH in gradio_app.py to your model repo or local path
+4. Space auto-builds and serves at port 7860
+
+## Technical Notes
+
+- Uses langchain-huggingface integration (no deprecation warnings)
+- Structured outputs with consistent section headers
+- Local RAG with keyword/Jaccard retrieval
+- HTML visualization with SVG flow diagrams
+- FastAPI endpoint for integration
