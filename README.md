@@ -32,6 +32,7 @@ Direct SFT training on cybersecurity datasets using Llama-3.2-1B-Instruct with v
 - `--simple` uses simplified sections: Severity, Immediate Actions, Recovery, Preventive Measures
 - `--save_html` saves HTML report to specified path
 
+<img width="3200" height="3753" alt="Cyber Threat Assessment" src="https://github.com/user-attachments/assets/82153180-57cb-487b-bf7f-92d1f8e4747f" />
 ## Available Features
 
 ### Current Implementation
