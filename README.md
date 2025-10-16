@@ -31,6 +31,9 @@ Direct SFT training on cybersecurity datasets using Llama-3.2-1B-Instruct with v
 - `--public_kb` includes knowledge_base/PUBLIC_KB.md into retrieval
 - `--simple` uses simplified sections: Severity, Immediate Actions, Recovery, Preventive Measures
 - `--save_html` saves HTML report to specified path
+- `--enable_ioc` extracts Indicators of Compromise (IOCs) from assessment
+- `--save_iocs` saves extracted IOCs to JSON file
+- `--feedback_log` logs assessments with user feedback to JSONL file
 
 <img width="3200" height="3753" alt="Cyber Threat Assessment" src="https://github.com/user-attachments/assets/82153180-57cb-487b-bf7f-92d1f8e4747f" />
 ## Available Features
@@ -41,6 +44,8 @@ Direct SFT training on cybersecurity datasets using Llama-3.2-1B-Instruct with v
 - **Interactive Mode**: Conversational threat analysis
 - **Vector RAG**: Semantic similarity search over knowledge base
 - **HTML Reports**: Styled assessment reports with visualizations
+- **IOC Extraction**: Automated extraction of IPs, domains, hashes, paths, users
+- **Feedback Logging**: Collect user feedback for continuous improvement
 - **REST API**: FastAPI endpoint for integration
 - **HF Spaces**: Gradio web interface deployment
 - **Severity Rubric**: Consistent threat classification
@@ -99,14 +104,52 @@ python cyber_agent.py --threat "Suspicious PowerShell download" \
 HTML includes:
 - Linear Steps view for Immediate Actions with numbered badges
 - Flow Diagram: inline SVG showing left-to-right sequence
+- IOC Section: Extracted indicators displayed as formatted JSON (when enabled)
+
+### IOC Extraction & Feedback
+
+Extract Indicators of Compromise and log user feedback for model improvement.
+
+Enable IOC extraction:
+```bash
+python src/cyber_agent_vec.py --threat "Malware detected on endpoint" \
+  --context "Windows 10 workstation" \
+  --enable_ioc \
+  --save_iocs "./iocs"
+```
+
+Log feedback for continuous improvement:
+```bash
+python src/cyber_agent_vec.py --feedback_log "./logs/feedback.jsonl"
+```
+
+IOC extraction identifies:
+- IP addresses (IPv4)
+- Domain names
+- File hashes (MD5, SHA1, SHA256)
+- File paths (Windows and Unix)
+- Usernames
+
+Feedback logging captures:
+- Assessment timestamp
+- Threat description and context
+- Model output
+- User feedback and rating (1-5)
 
 ### Hugging Face Spaces
 
-Deploy to HF Spaces using the Gradio app in HF_Space/ folder.
+Deploy to HF Spaces using the Gradio app in HF_Space/ folder with full IOC extraction and feedback capabilities.
+
+Features:
+- Tabbed interface: Assessment Report, Raw Text, Extracted IOCs
+- Real-time IOC extraction with toggle
+- Feedback submission with rating (1-5) and comments
+- Logs stored in feedback_logs/feedback.jsonl
+- Example scenarios for quick testing
 
 Steps:
 1. Create new Gradio Space under your HF account
-2. Upload gradio_app.py, requirements.txt, and knowledge_base/
+2. Upload gradio_app.py, requirements.txt, knowledge_base/, and src/ folder
 3. Set MODEL_PATH in gradio_app.py to your model repo or local path
 4. Space auto-builds and serves at port 7860
 
@@ -119,10 +162,10 @@ Steps:
 4. **Output Generation**: HTML reports with visualizations
 
 ### Phase 2: Multi-Agent Architecture (Planned)
-5. **Specialized Agents**: Triage, Analysis, Containment, Forensics
-6. **Agent Orchestration**: Communication protocols and routing
-7. **Decision Trees**: Automated agent selection and coordination
-8. **Feedback Loops**: Continuous learning from analyst input
+5. **IOC Extraction & Feedback**: ✓ Automated indicator extraction with user feedback collection
+6. **Specialized Agents**: Triage, Analysis, Containment, Forensics
+7. **Agent Orchestration**: Communication protocols and routing
+8. **Decision Trees**: Automated agent selection and coordination
 
 ### Phase 3: Production Integration (Future)
 9. **External Connectors**: SIEM/SOAR integration (Splunk, QRadar)

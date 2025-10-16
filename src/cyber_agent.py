@@ -191,9 +191,6 @@ def assess_threat(chain, threat: str, context: str = "", retrieved: str = "", *,
     return ensure_sections(out, simple=simple)
 
 
-# removed refine_missing_sections per user request
-
-
 def render_html_report(assessment: str, title: str = "Cyber Threat Assessment", *, simple: bool = False) -> str:
     """Render a lightweight HTML report from the plain-text assessment."""
     import html
