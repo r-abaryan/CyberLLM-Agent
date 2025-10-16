@@ -35,7 +35,7 @@ Direct SFT training on cybersecurity datasets using Llama-3.2-1B-Instruct with v
 - `--save_iocs` saves extracted IOCs to JSON file
 - `--feedback_log` logs assessments with user feedback to JSONL file
 
-<img width="3200" height="3753" alt="Cyber Threat Assessment" src="https://github.com/user-attachments/assets/82153180-57cb-487b-bf7f-92d1f8e4747f" />
+<img width="3028" height="1472" alt="IOC + Feedback" src="https://github.com/user-attachments/assets/752c856c-735d-4128-92c6-b733708e4247" />
 ## Available Features
 
 ### Current Implementation
