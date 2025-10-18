@@ -11,3 +11,7 @@ src/agents/__pycache__/analysis_agent.cpython-312.pyc
 src/agents/__pycache__/base_agent.cpython-312.pyc
 src/agents/__pycache__/router.cpython-312.pyc
 src/agents/__pycache__/triage_agent.cpython-312.pyc
+test_all_features.py
+src/agents/__pycache__/agent_manager.cpython-312.pyc
+src/agents/__pycache__/custom_agent.cpython-312.pyc
+src/agents/__pycache__/prompt_templates.cpython-312.pyc

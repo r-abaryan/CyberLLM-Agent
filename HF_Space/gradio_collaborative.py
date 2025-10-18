@@ -21,6 +21,7 @@ from langchain_core.output_parsers import StrOutputParser
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 from rag.vector_rag import create_vector_rag
 from utils.ioc_utils import extract_iocs, format_iocs_json, iocs_to_text
+from agents import CustomAgent, AgentManager
 
 
 # Configuration
@@ -78,10 +79,10 @@ def build_chain(llm: HuggingFacePipeline, stage: str = "triage"):
             "Focus on RAPID assessment and IMMEDIATE containment.\n\n"
             f"{severity_rubric}\n\n"
             f"Always output these sections: {', '.join(REQUIRED_SECTIONS)}.\n"
-            "For Immediate Actions: Focus ONLY on urgent first-response steps (isolate, block, disable).\n"
-            "For Recovery: Brief initial steps only (backup, snapshot).\n"
-            "For Preventive Measures: Quick wins and immediate patches.\n"
-            "Be concise. Max 3-4 items per section. Use bullet points (starting with '-')."
+            "For Immediate Actions: ONLY urgent first-response (isolate, block, disable). NO patching, NO analysis.\n"
+            "For Recovery: ONLY brief initial steps (backup, snapshot). NO restoration, NO validation.\n"
+            "For Preventive Measures: ONLY quick wins (enable logging, emergency patches). NO long-term policies.\n"
+            "AVOID REDUNDANCY: Each action appears in ONE section only. Be concise. Max 3-4 items per section."
         )
     else:  # analysis
         system_prompt = (
@@ -89,10 +90,10 @@ def build_chain(llm: HuggingFacePipeline, stage: str = "triage"):
             "Focus on DETAILED investigation and RECOVERY planning.\n\n"
             f"{severity_rubric}\n\n"
             f"Always output these sections: {', '.join(REQUIRED_SECTIONS)}.\n"
-            "For Immediate Actions: Focus on investigation steps (collect logs, analyze IOCs, document timeline).\n"
-            "For Recovery: Detailed restoration procedures and validation steps.\n"
-            "For Preventive Measures: Long-term security improvements and policy changes.\n"
-            "Be thorough. Max 5 items per section. Use bullet points (starting with '-')."
+            "For Immediate Actions: ONLY investigation (collect logs, analyze IOCs, document timeline). NO isolation, NO blocking.\n"
+            "For Recovery: ONLY restoration and validation (wipe/reimage, restore data, verify integrity). NO prevention.\n"
+            "For Preventive Measures: ONLY long-term improvements (policy changes, architecture, training). NO immediate fixes.\n"
+            "AVOID REDUNDANCY: Each action appears in ONE section only. Be thorough. Max 5 items per section."
         )
     
     # Few-shot example for consistent formatting
@@ -141,6 +142,10 @@ print("Chains built!")
 print("Initializing Vector RAG...")
 vector_rag = create_vector_rag(kb_path="./knowledge_base", model_name="all-MiniLM-L6-v2")
 print("Vector RAG ready!")
+
+print("Initializing agent manager...")
+agent_manager = AgentManager(storage_dir="custom_agents")
+print("Agent manager ready!")
 
 
 def render_flow_diagram(actions_map: dict) -> str:
@@ -386,9 +391,9 @@ def render_combined_html(triage_output: str, analysis_output: str, threat: str, 
     return f'<html><head><meta charset="utf-8"/><title>Collaborative Assessment</title>{styles}</head><body>{body}</body></html>'
 
 
-def collaborative_assessment(threat: str, context: str, enable_ioc: bool = True) -> Tuple[str, str, str, str, str]:
+def collaborative_assessment(threat: str, context: str, custom_agents: List[str], enable_ioc: bool = True) -> Tuple[str, str, str, str, str]:
     """
-    Run collaborative multi-agent assessment using structured chains
+    Run collaborative multi-agent assessment using structured chains or custom agents
     Returns: triage_html, analysis_html, combined_html, iocs, status
     """
     if not threat.strip():
@@ -399,17 +404,84 @@ def collaborative_assessment(threat: str, context: str, enable_ioc: bool = True)
     retrieved_context = vector_rag.retrieve_context(threat, context)
     full_context = f"{context.strip() or 'No additional context provided'}\n\nRelevant Knowledge:\n{retrieved_context}"
     
-    # Stage 1: Triage - Use triage chain for quick assessment
+    # Run built-in Triage + Analysis first
     triage_output = triage_chain.invoke({
         "threat": threat.strip(),
         "context": full_context
     })
     
-    # Stage 2: Analysis - Use analysis chain for detailed investigation  
     analysis_output = analysis_chain.invoke({
         "threat": threat.strip(),
         "context": full_context
     })
+    
+    # Check if custom agents are also selected
+    if custom_agents and len(custom_agents) > 0:
+        # Run custom agents in addition to built-in
+        custom_outputs = []
+        
+        for custom_agent_name in custom_agents:
+            agent = agent_manager.load_agent(custom_agent_name, llm=llm)
+            if agent:
+                result_dict = agent.process(threat.strip(), context=full_context)
+                custom_output = result_dict.get("assessment", "")
+                custom_outputs.append({
+                    "name": custom_agent_name,
+                    "output": custom_output
+                })
+            else:
+                custom_outputs.append({
+                    "name": custom_agent_name,
+                    "output": f"Error: Could not load agent '{custom_agent_name}'"
+                })
+        
+        # Build combined output with built-in + custom agents
+        combined_text = triage_output + "\n\n" + analysis_output
+        for custom in custom_outputs:
+            combined_text += "\n\n" + custom["output"]
+        
+        # Extract IOCs from all outputs
+        iocs = None
+        ioc_text = ""
+        if enable_ioc:
+            iocs = extract_iocs(combined_text)
+            if any(iocs.get(k) for k in ["ips", "domains", "hashes", "paths", "users"]):
+                ioc_text = iocs_to_text(iocs)
+        
+        # Render HTML reports with custom agents appended
+        combined_html = render_combined_html(triage_output, analysis_output, threat, iocs)
+        
+        # Add custom agent outputs to combined view
+        custom_agent_html = """
+        <div style='margin-top: 50px; padding-top: 30px; border-top: 4px solid #ffa500;'>
+            <h1 style='color: #ffa500; text-align: center; margin-bottom: 30px;'>
+                📊 Custom Agent Assessments
+            </h1>
+        """
+        
+        for idx, custom in enumerate(custom_outputs):
+            custom_agent_html += f"""
+            <div class='report' style='margin-top: 25px; border-left: 5px solid #ffa500; padding: 20px; background: #1a1f26; border-radius: 8px;'>
+                <h2 style='color: #ffa500; font-size: 22px; margin-bottom: 15px;'>
+                    🤖 Custom Agent {idx + 1}: {custom['name']}
+                </h2>
+                <pre style='white-space: pre-wrap; font-size: 14px; line-height: 1.6;'>{custom['output']}</pre>
+            </div>
+            """
+        
+        custom_agent_html += "</div>"
+        
+        # Insert custom agents before closing tags
+        combined_html = combined_html.replace("</body></html>", f"{custom_agent_html}</body></html>")
+        
+        triage_html = render_stage_html("Triage & Containment", triage_output, 1, None)
+        analysis_html = render_stage_html("Analysis & Recovery", analysis_output, 2, iocs)
+        
+        status = f"Triage + Analysis + Custom Agents: {', '.join([c['name'] for c in custom_outputs])} ({2 + len(custom_outputs)} agents)"
+        
+        return triage_html, analysis_html, combined_html, ioc_text, status
+    
+    # No custom agents - use standard Triage + Analysis output (already computed above)
     
     # Extract IOCs
     iocs = None
@@ -427,6 +499,36 @@ def collaborative_assessment(threat: str, context: str, enable_ioc: bool = True)
     status = "Assessment Complete: Triage + Analysis"
     
     return triage_html, analysis_html, combined_html, ioc_text, status
+
+
+def create_custom_agent_handler(name: str, role: str, prompt: str) -> Tuple[str, gr.update]:
+    """Create a custom agent"""
+    try:
+        if not name or not role or not prompt:
+            return "⚠️ Please fill in all fields", gr.update()
+        
+        if agent_manager.agent_exists(name):
+            return f"⚠️ Agent '{name}' already exists", gr.update()
+        
+        agent = CustomAgent(
+            name=name.strip(),
+            role=role.strip(),
+            system_prompt=prompt.strip(),
+            llm=llm
+        )
+        
+        success = agent_manager.save_agent(agent)
+        if success:
+            # Refresh dropdown with new agent list
+            updated_choices = [agent["name"] for agent in agent_manager.list_agents()]
+            return f"✅ Agent '{name}' created successfully!", gr.update(choices=updated_choices)
+        else:
+            return "❌ Failed to save agent", gr.update()
+    
+    except ValueError as e:
+        return f"❌ Validation error: {str(e)}", gr.update()
+    except Exception as e:
+        return f"❌ Error: {str(e)}", gr.update()
 
 
 def log_feedback(threat: str, assessment: str, feedback: str, rating: Optional[int] = None):
@@ -481,8 +583,20 @@ with gr.Blocks(title="Collaborative Multi-Agent Assessment", theme=gr.themes.Sof
         )
     
     with gr.Row():
-        enable_ioc = gr.Checkbox(label="Extract IOCs", value=True)
-        assess_btn = gr.Button("Run Collaborative Assessment", variant="primary", size="lg")
+        with gr.Column(scale=1):
+            enable_ioc = gr.Checkbox(label="Extract IOCs", value=True)
+        with gr.Column(scale=3):
+            custom_agent_selector = gr.Dropdown(
+                choices=[agent["name"] for agent in agent_manager.list_agents()],
+                value=[],
+                label="Custom Agents (Multi-Select)",
+                info="Select one or more custom agents to run in sequence, or leave blank for built-in Triage + Analysis",
+                multiselect=True,
+                interactive=True
+            )
+    
+    with gr.Row():
+        assess_btn = gr.Button("Run Assessment", variant="primary", size="lg")
     
     status_text = gr.Markdown("**Status:** Ready")
     
@@ -508,6 +622,34 @@ with gr.Blocks(title="Collaborative Multi-Agent Assessment", theme=gr.themes.Sof
                 lines=12,
                 placeholder="IOCs will appear here..."
             )
+    
+    # Custom Agent Creation
+    gr.Markdown("---")
+    gr.Markdown("### Create Custom Agent")
+    gr.Markdown("Create a specialized agent with custom behavior and focus areas.")
+    
+    with gr.Row():
+        custom_agent_name = gr.Textbox(
+            label="Agent Name",
+            placeholder="e.g., Ransomware Specialist",
+            scale=2
+        )
+        custom_agent_role = gr.Textbox(
+            label="Role/Specialty",
+            placeholder="e.g., Expert in ransomware analysis",
+            scale=3
+        )
+    
+    custom_agent_prompt = gr.Textbox(
+        label="System Prompt",
+        placeholder="Define agent behavior, focus areas, and output structure...",
+        lines=4,
+        max_lines=8
+    )
+    
+    with gr.Row():
+        create_agent_btn = gr.Button("Create Agent", variant="secondary")
+        custom_agent_status = gr.Markdown("")
     
     # Feedback
     gr.Markdown("---")
@@ -542,12 +684,12 @@ with gr.Blocks(title="Collaborative Multi-Agent Assessment", theme=gr.themes.Sof
         </div>"""
         return loading_html, loading_html, loading_html, "", "**Status:** Running collaborative assessment..."
     
-    def assess_and_store(threat: str, context: str, enable_ioc_flag: bool):
+    def assess_and_store(threat: str, context: str, custom_agents: List[str], enable_ioc_flag: bool):
         if not threat.strip():
             empty_html = "<p style='color: #9aa4ad;'>Please provide a threat description to begin assessment.</p>"
             return empty_html, empty_html, empty_html, "", "**Status:** Ready", "", ""
         
-        triage, analysis, combined, iocs, status = collaborative_assessment(threat, context, enable_ioc_flag)
+        triage, analysis, combined, iocs, status = collaborative_assessment(threat, context, custom_agents, enable_ioc_flag)
         status_msg = f"**Status:** {status}"
         return triage, analysis, combined, iocs, status_msg, threat, combined
     
@@ -558,8 +700,15 @@ with gr.Blocks(title="Collaborative Multi-Agent Assessment", theme=gr.themes.Sof
         outputs=[triage_output, analysis_output, combined_output, ioc_output, status_text]
     ).then(
         fn=assess_and_store,
-        inputs=[threat_input, context_input, enable_ioc],
+        inputs=[threat_input, context_input, custom_agent_selector, enable_ioc],
         outputs=[triage_output, analysis_output, combined_output, ioc_output, status_text, current_threat, current_assessment]
+    )
+    
+    # Custom agent creation handler
+    create_agent_btn.click(
+        fn=create_custom_agent_handler,
+        inputs=[custom_agent_name, custom_agent_role, custom_agent_prompt],
+        outputs=[custom_agent_status, custom_agent_selector]
     )
     
     feedback_btn.click(

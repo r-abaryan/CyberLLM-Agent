@@ -23,7 +23,8 @@ from langchain_huggingface import HuggingFacePipeline
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 from rag.vector_rag import create_vector_rag, VectorRAG
 from utils.ioc_utils import extract_iocs, format_iocs_json, iocs_to_text
-from agents import AgentRouter
+from agents import AgentRouter, CustomAgent, AgentManager
+from agents.prompt_templates import get_template_names, get_template_description
 
 
 # Configuration
@@ -66,7 +67,7 @@ def build_llm(model_path: str = MODEL_PATH) -> HuggingFacePipeline:
     return HuggingFacePipeline(pipeline=pipe)
 
 
-def build_chain(llm: HuggingFacePipeline):
+def build_chain(llm: HuggingFacePipeline, stage: str = "standard"):
     """Create LangChain prompt chain with few-shot example."""
     severity_rubric = (
         "Severity rubric:\n"
@@ -76,13 +77,36 @@ def build_chain(llm: HuggingFacePipeline):
         "- Critical: Widespread compromise, immediate escalation needed"
     )
 
-    system_prompt = (
-        "You are a senior cybersecurity incident responder. "
-        "Assess threats and produce concise, actionable plans.\n\n"
-        f"{severity_rubric}\n\n"
-        f"Always output these sections: {', '.join(REQUIRED_SECTIONS_SIMPLE)}.\n"
-        "Use bullet points (starting with '-') for action items."
-    )
+    if stage == "triage":
+        system_prompt = (
+            "You are a senior cybersecurity incident responder performing TRIAGE. "
+            "Focus on RAPID assessment and IMMEDIATE containment.\n\n"
+            f"{severity_rubric}\n\n"
+            f"Always output these sections: {', '.join(REQUIRED_SECTIONS_SIMPLE)}.\n"
+            "For Immediate Actions: ONLY urgent first-response (isolate, block, disable). NO patching, NO analysis.\n"
+            "For Recovery: ONLY brief initial steps (backup, snapshot). NO restoration, NO validation.\n"
+            "For Preventive Measures: ONLY quick wins (enable logging, emergency patches). NO long-term policies.\n"
+            "AVOID REDUNDANCY: Each action appears in ONE section only. Be concise. Max 3-4 items per section."
+        )
+    elif stage == "analysis":
+        system_prompt = (
+            "You are a senior cybersecurity incident responder performing ANALYSIS. "
+            "Focus on DETAILED investigation and RECOVERY planning.\n\n"
+            f"{severity_rubric}\n\n"
+            f"Always output these sections: {', '.join(REQUIRED_SECTIONS_SIMPLE)}.\n"
+            "For Immediate Actions: ONLY investigation (collect logs, analyze IOCs, document timeline). NO isolation, NO blocking.\n"
+            "For Recovery: ONLY restoration and validation (wipe/reimage, restore data, verify integrity). NO prevention.\n"
+            "For Preventive Measures: ONLY long-term improvements (policy changes, architecture, training). NO immediate fixes.\n"
+            "AVOID REDUNDANCY: Each action appears in ONE section only. Be thorough. Max 5 items per section."
+        )
+    else:  # standard
+        system_prompt = (
+            "You are a senior cybersecurity incident responder. "
+            "Assess threats and produce concise, actionable plans.\n\n"
+            f"{severity_rubric}\n\n"
+            f"Always output these sections: {', '.join(REQUIRED_SECTIONS_SIMPLE)}.\n"
+            "Use bullet points (starting with '-') for action items."
+        )
     
     # Few-shot example for consistent formatting
     example_assessment = """Severity
@@ -285,7 +309,9 @@ def render_flow_diagram(actions_map: dict) -> str:
 # Initialize model, agent router, and vector RAG
 print("Loading cybersecurity model...")
 llm = build_llm()
-chain = build_chain(llm)
+chain = build_chain(llm, stage="standard")
+triage_chain = build_chain(llm, stage="triage")
+analysis_chain = build_chain(llm, stage="analysis")
 print("Model loaded successfully!")
 
 print("Initializing multi-agent router...")
@@ -295,6 +321,48 @@ print("Agent router initialized successfully!")
 print("Initializing vector RAG...")
 vector_rag = create_vector_rag(kb_path="./knowledge_base", model_name="all-MiniLM-L6-v2")
 print("Vector RAG initialized successfully!")
+
+print("Initializing agent manager...")
+agent_manager = AgentManager(storage_dir="custom_agents")
+print("Agent manager initialized successfully!")
+
+
+def get_all_agent_choices() -> List[str]:
+    """Get list of all available agents (built-in + custom)"""
+    built_in = ["auto", "triage", "analysis"]
+    custom_agents = agent_manager.list_agents()
+    custom_names = [f"custom:{agent['name']}" for agent in custom_agents]
+    return built_in + custom_names
+
+
+def create_custom_agent_handler(name: str, role: str, prompt: str) -> Tuple[str, gr.update]:
+    """Create a custom agent"""
+    try:
+        if not name or not role or not prompt:
+            return "⚠️ Please fill in all fields", gr.update()
+        
+        if agent_manager.agent_exists(name):
+            return f"⚠️ Agent '{name}' already exists", gr.update()
+        
+        agent = CustomAgent(
+            name=name.strip(),
+            role=role.strip(),
+            system_prompt=prompt.strip(),
+            llm=llm
+        )
+        
+        success = agent_manager.save_agent(agent)
+        if success:
+            # Refresh dropdown with new agent list
+            updated_choices = [agent["name"] for agent in agent_manager.list_agents()]
+            return f"✅ Agent '{name}' created successfully!", gr.update(choices=updated_choices)
+        else:
+            return "❌ Failed to save agent", gr.update()
+    
+    except ValueError as e:
+        return f"❌ Validation error: {str(e)}", gr.update()
+    except Exception as e:
+        return f"❌ Error: {str(e)}", gr.update()
 
 
 def log_feedback(threat: str, assessment: str, feedback: str, rating: Optional[int] = None):
@@ -315,33 +383,94 @@ def log_feedback(threat: str, assessment: str, feedback: str, rating: Optional[i
         f.write(json.dumps(entry) + "\n")
 
 
-def assess_threat(threat: str, context: str, agent_type: str = "auto", enable_ioc: bool = True) -> Tuple[str, str, str, str]:
+def assess_threat(threat: str, context: str, agent_type: str = "auto", custom_agents: List[str] = [], enable_ioc: bool = True) -> Tuple[str, str, str, str]:
     """Run threat assessment with vector RAG and return text + HTML + IOCs + agent name."""
     if not threat.strip():
         return "Please provide a threat description.", "<p>No assessment generated.</p>", "", "None"
     
     # Retrieve relevant context using vector RAG
     retrieved_context = vector_rag.retrieve_context(threat, context)
+    full_context = f"{context.strip() or 'No additional context provided'}\n\nRelevant Knowledge:\n{retrieved_context}"
     
-    # Use the original chain for structured output (agents not fully integrated yet)
-    result = chain.invoke({
-        "threat": threat.strip(),
-        "context": context.strip() or "No additional context provided",
-        "retrieved": retrieved_context
-    })
+    results = []
+    agent_names = []
     
-    # Determine agent type for display (simulated based on keywords for now)
-    threat_lower = threat.lower()
-    if any(kw in threat_lower for kw in ["urgent", "alert", "immediately", "quick"]):
-        agent_name = "Triage & Containment Agent (auto-selected)"
-    elif any(kw in threat_lower for kw in ["investigate", "analyze", "ioc", "forensics"]):
-        agent_name = "Analysis & Recovery Agent (auto-selected)"
+    # Run built-in agents first if requested
+    if agent_type == "both":
+        # Run Triage
+        triage_output = triage_chain.invoke({
+            "threat": threat.strip(),
+            "context": context.strip() or "No additional context provided",
+            "retrieved": retrieved_context
+        })
+        results.append(f"## Triage & Containment Agent\n\n{triage_output}")
+        agent_names.append("Triage")
+        
+        # Run Analysis
+        analysis_output = analysis_chain.invoke({
+            "threat": threat.strip(),
+            "context": context.strip() or "No additional context provided",
+            "retrieved": retrieved_context
+        })
+        results.append(f"## Analysis & Recovery Agent\n\n{analysis_output}")
+        agent_names.append("Analysis")
     elif agent_type == "triage":
-        agent_name = "Triage & Containment Agent (manual)"
+        triage_output = triage_chain.invoke({
+            "threat": threat.strip(),
+            "context": context.strip() or "No additional context provided",
+            "retrieved": retrieved_context
+        })
+        results.append(triage_output)
+        agent_names.append("Triage Agent")
     elif agent_type == "analysis":
-        agent_name = "Analysis & Recovery Agent (manual)"
+        analysis_output = analysis_chain.invoke({
+            "threat": threat.strip(),
+            "context": context.strip() or "No additional context provided",
+            "retrieved": retrieved_context
+        })
+        results.append(analysis_output)
+        agent_names.append("Analysis Agent")
+    elif agent_type == "auto":
+        # Smart routing based on keywords
+        threat_lower = threat.lower()
+        if any(kw in threat_lower for kw in ["urgent", "alert", "immediately", "quick"]):
+            triage_output = triage_chain.invoke({
+                "threat": threat.strip(),
+                "context": context.strip() or "No additional context provided",
+                "retrieved": retrieved_context
+            })
+            results.append(triage_output)
+            agent_names.append("Triage Agent (auto)")
+        else:
+            result = chain.invoke({
+                "threat": threat.strip(),
+                "context": context.strip() or "No additional context provided",
+                "retrieved": retrieved_context
+            })
+            results.append(result)
+            agent_names.append("Standard Assessment")
+    
+    # Run custom agents if selected
+    if custom_agents and len(custom_agents) > 0:
+        for custom_agent_name in custom_agents:
+            agent = agent_manager.load_agent(custom_agent_name, llm=llm)
+            
+            if agent:
+                result_dict = agent.process(threat.strip(), context=full_context)
+                assessment = result_dict.get("assessment", "")
+                results.append(f"## {custom_agent_name}\n\n{assessment}")
+                agent_names.append(custom_agent_name)
+            else:
+                results.append(f"## {custom_agent_name}\n\nError: Could not load agent")
+                agent_names.append(f"{custom_agent_name} (error)")
+    
+    # Combine all results
+    if len(results) > 1:
+        result = "\n\n---\n\n".join(results)
     else:
-        agent_name = "Standard Assessment"
+        result = results[0] if results else "No assessment generated"
+    
+    agent_name = ", ".join(agent_names) + f" ({len(agent_names)} agent{'s' if len(agent_names) > 1 else ''})"
     
     # Extract IOCs if enabled
     iocs = None
@@ -352,7 +481,16 @@ def assess_threat(threat: str, context: str, agent_type: str = "auto", enable_io
             ioc_text = iocs_to_text(iocs)
     
     # Generate HTML report with IOCs
-    html_report = render_html_report(result.strip(), title=threat[:60] or "Threat Assessment", iocs=iocs)
+    # For "both" mode, extract raw outputs without headers for proper SVG generation
+    if agent_type == "both" and len(results) >= 2:
+        # Remove the "## Agent Name" headers to get clean output for SVG parsing
+        triage_clean = results[0].replace("## Triage & Containment Agent\n\n", "")
+        analysis_clean = results[1].replace("## Analysis & Recovery Agent\n\n", "")
+        # Merge actions from both agents for comprehensive SVG
+        combined_for_svg = triage_clean + "\n\n" + analysis_clean
+        html_report = render_html_report(combined_for_svg.strip(), title=threat[:60] or "Threat Assessment", iocs=iocs)
+    else:
+        html_report = render_html_report(result.strip(), title=threat[:60] or "Threat Assessment", iocs=iocs)
     
     return result.strip(), html_report, ioc_text, agent_name
 
@@ -390,12 +528,21 @@ with gr.Blocks(title="Cyber Threat Assessment", theme=gr.themes.Soft(primary_hue
         )
     
     with gr.Row():
-        with gr.Column(scale=2):
+        with gr.Column(scale=1):
             agent_selector = gr.Radio(
-                choices=["auto", "triage", "analysis"],
+                choices=["auto", "triage", "analysis", "both"],
                 value="auto",
-                label="Agent Selection",
-                info="Auto: Smart routing | Triage: Fast response | Analysis: Deep investigation"
+                label="Built-in Agents",
+                info="Auto: Smart routing | Triage: Fast response | Analysis: Deep investigation | Both: Triage + Analysis together"
+            )
+        with gr.Column(scale=2):
+            custom_agent_selector = gr.Dropdown(
+                choices=[agent["name"] for agent in agent_manager.list_agents()],
+                value=[],
+                label="Custom Agents (Multi-Select)",
+                info="Select one or more custom agents to run in sequence (can combine with built-in)",
+                multiselect=True,
+                interactive=True
             )
         with gr.Column(scale=1):
             enable_ioc = gr.Checkbox(label="Extract IOCs", value=True)
@@ -415,6 +562,34 @@ with gr.Blocks(title="Cyber Threat Assessment", theme=gr.themes.Soft(primary_hue
         
         with gr.Tab("🎯 Extracted IOCs"):
             ioc_output = gr.Textbox(label="Indicators of Compromise", lines=12, placeholder="IOCs will appear here if detected...")
+    
+    # Custom Agent Creation Section
+    gr.Markdown("---")
+    gr.Markdown("### 🤖 Create Custom Agent")
+    gr.Markdown("Create a specialized agent with custom behavior and focus areas.")
+    
+    with gr.Row():
+        custom_agent_name = gr.Textbox(
+            label="Agent Name",
+            placeholder="e.g., Ransomware Specialist",
+            scale=2
+        )
+        custom_agent_role = gr.Textbox(
+            label="Role/Specialty",
+            placeholder="e.g., Expert in ransomware analysis",
+            scale=3
+        )
+    
+    custom_agent_prompt = gr.Textbox(
+        label="System Prompt",
+        placeholder="Define agent behavior, focus areas, and output structure...\n\nExample: You are a ransomware specialist. Focus on variant identification, containment, and recovery options. Provide immediate containment steps first.",
+        lines=4,
+        max_lines=8
+    )
+    
+    with gr.Row():
+        create_agent_btn = gr.Button("➕ Create Agent", variant="secondary")
+        custom_agent_status = gr.Markdown("")
     
     # Feedback section
     gr.Markdown("---")
@@ -442,8 +617,8 @@ with gr.Blocks(title="Cyber Threat Assessment", theme=gr.themes.Soft(primary_hue
     feedback_status = gr.Markdown("")
     
     # Assessment handler with loading state
-    def assess_and_store(threat: str, context: str, agent_type: str, enable_ioc_flag: bool):
-        text, html, iocs, agent_name = assess_threat(threat, context, agent_type, enable_ioc_flag)
+    def assess_and_store(threat: str, context: str, agent_type: str, custom_agents: List[str], enable_ioc_flag: bool):
+        text, html, iocs, agent_name = assess_threat(threat, context, agent_type, custom_agents, enable_ioc_flag)
         agent_msg = f"**Agent Used:** {agent_name}"
         return text, html, iocs, agent_msg, threat, text
     
@@ -476,8 +651,15 @@ with gr.Blocks(title="Cyber Threat Assessment", theme=gr.themes.Soft(primary_hue
         outputs=[text_output, html_output, ioc_output, agent_info]
     ).then(
         fn=assess_and_store,
-        inputs=[threat_input, context_input, agent_selector, enable_ioc],
+        inputs=[threat_input, context_input, agent_selector, custom_agent_selector, enable_ioc],
         outputs=[text_output, html_output, ioc_output, agent_info, current_threat, current_assessment]
+    )
+    
+    # Custom agent creation handler
+    create_agent_btn.click(
+        fn=create_custom_agent_handler,
+        inputs=[custom_agent_name, custom_agent_role, custom_agent_prompt],
+        outputs=[custom_agent_status, custom_agent_selector]
     )
     
     # Feedback handler

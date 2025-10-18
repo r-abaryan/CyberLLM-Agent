@@ -1,0 +1,6 @@
+# Ignore all custom agent files (user data)
+*.json
+
+# Keep this .gitignore
+!.gitignore
+
