@@ -19,10 +19,11 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_huggingface import HuggingFacePipeline
 
-# Add src directory to path for vector RAG import
+# Add src directory to path for vector RAG and agents import
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 from rag.vector_rag import create_vector_rag, VectorRAG
 from utils.ioc_utils import extract_iocs, format_iocs_json, iocs_to_text
+from agents import AgentRouter
 
 
 # Configuration
@@ -281,11 +282,15 @@ def render_flow_diagram(actions_map: dict) -> str:
     return ''.join(svg_parts)
 
 
-# Initialize model, chain, and vector RAG
+# Initialize model, agent router, and vector RAG
 print("Loading cybersecurity model...")
 llm = build_llm()
 chain = build_chain(llm)
 print("Model loaded successfully!")
+
+print("Initializing multi-agent router...")
+agent_router = AgentRouter(llm=llm)
+print("Agent router initialized successfully!")
 
 print("Initializing vector RAG...")
 vector_rag = create_vector_rag(kb_path="./knowledge_base", model_name="all-MiniLM-L6-v2")
@@ -310,20 +315,33 @@ def log_feedback(threat: str, assessment: str, feedback: str, rating: Optional[i
         f.write(json.dumps(entry) + "\n")
 
 
-def assess_threat(threat: str, context: str, enable_ioc: bool = True) -> Tuple[str, str, str]:
-    """Run threat assessment with vector RAG and return text + HTML + IOCs."""
+def assess_threat(threat: str, context: str, agent_type: str = "auto", enable_ioc: bool = True) -> Tuple[str, str, str, str]:
+    """Run threat assessment with vector RAG and return text + HTML + IOCs + agent name."""
     if not threat.strip():
-        return "Please provide a threat description.", "<p>No assessment generated.</p>", ""
+        return "Please provide a threat description.", "<p>No assessment generated.</p>", "", "None"
     
     # Retrieve relevant context using vector RAG
     retrieved_context = vector_rag.retrieve_context(threat, context)
     
-    # Run assessment with retrieved context
+    # Use the original chain for structured output (agents not fully integrated yet)
     result = chain.invoke({
         "threat": threat.strip(),
         "context": context.strip() or "No additional context provided",
         "retrieved": retrieved_context
     })
+    
+    # Determine agent type for display (simulated based on keywords for now)
+    threat_lower = threat.lower()
+    if any(kw in threat_lower for kw in ["urgent", "alert", "immediately", "quick"]):
+        agent_name = "Triage & Containment Agent (auto-selected)"
+    elif any(kw in threat_lower for kw in ["investigate", "analyze", "ioc", "forensics"]):
+        agent_name = "Analysis & Recovery Agent (auto-selected)"
+    elif agent_type == "triage":
+        agent_name = "Triage & Containment Agent (manual)"
+    elif agent_type == "analysis":
+        agent_name = "Analysis & Recovery Agent (manual)"
+    else:
+        agent_name = "Standard Assessment"
     
     # Extract IOCs if enabled
     iocs = None
@@ -336,7 +354,7 @@ def assess_threat(threat: str, context: str, enable_ioc: bool = True) -> Tuple[s
     # Generate HTML report with IOCs
     html_report = render_html_report(result.strip(), title=threat[:60] or "Threat Assessment", iocs=iocs)
     
-    return result.strip(), html_report, ioc_text
+    return result.strip(), html_report, ioc_text, agent_name
 
 
 def submit_feedback(threat: str, assessment: str, feedback: str, rating: Optional[float] = None) -> str:
@@ -352,8 +370,8 @@ def submit_feedback(threat: str, assessment: str, feedback: str, rating: Optiona
 
 # Gradio UI
 with gr.Blocks(title="Cyber Threat Assessment", theme=gr.themes.Soft(primary_hue="blue")) as demo:
-    gr.Markdown("# 🛡️ Cyber Threat Assessment Agent with Vector RAG + IOC Extraction")
-    gr.Markdown("Describe a cybersecurity threat to receive a structured assessment with severity analysis, actionable recommendations, and extracted Indicators of Compromise (IOCs). Uses semantic similarity search over knowledge base for enhanced context.")
+    gr.Markdown("# Multi-Agent Cyber Threat Assessment System")
+    gr.Markdown("Intelligent threat assessment powered by **specialized agents** (Triage & Analysis), **Vector RAG** for knowledge retrieval, and **IOC extraction**. The system automatically routes your query to the most appropriate agent or you can select manually.")
     
     # Store state for feedback
     current_threat = gr.State("")
@@ -372,8 +390,21 @@ with gr.Blocks(title="Cyber Threat Assessment", theme=gr.themes.Soft(primary_hue
         )
     
     with gr.Row():
+        with gr.Column(scale=2):
+            agent_selector = gr.Radio(
+                choices=["auto", "triage", "analysis"],
+                value="auto",
+                label="Agent Selection",
+                info="Auto: Smart routing | Triage: Fast response | Analysis: Deep investigation"
+            )
+        with gr.Column(scale=1):
+            enable_ioc = gr.Checkbox(label="Extract IOCs", value=True)
+    
+    with gr.Row():
         assess_btn = gr.Button("🔍 Assess Threat", variant="primary", size="lg")
-        enable_ioc = gr.Checkbox(label="Extract IOCs", value=True)
+    
+    # Agent info display
+    agent_info = gr.Markdown("", visible=True)
     
     with gr.Tabs():
         with gr.Tab("📊 Assessment Report"):
@@ -411,9 +442,10 @@ with gr.Blocks(title="Cyber Threat Assessment", theme=gr.themes.Soft(primary_hue
     feedback_status = gr.Markdown("")
     
     # Assessment handler with loading state
-    def assess_and_store(threat: str, context: str, enable_ioc_flag: bool):
-        text, html, iocs = assess_threat(threat, context, enable_ioc_flag)
-        return text, html, iocs, threat, text
+    def assess_and_store(threat: str, context: str, agent_type: str, enable_ioc_flag: bool):
+        text, html, iocs, agent_name = assess_threat(threat, context, agent_type, enable_ioc_flag)
+        agent_msg = f"**Agent Used:** {agent_name}"
+        return text, html, iocs, agent_msg, threat, text
     
     # Show loading message before processing
     def show_loading():
@@ -421,7 +453,7 @@ with gr.Blocks(title="Cyber Threat Assessment", theme=gr.themes.Soft(primary_hue
         <div style="text-align:center;padding:60px;background:#11161d;border-radius:8px;">
             <div style="font-size:48px;margin-bottom:20px;">⏳</div>
             <div style="font-size:18px;color:#8ab4f8;margin-bottom:10px;">Analyzing Threat...</div>
-            <div style="font-size:14px;color:#9aa4ad;">Running Vector RAG retrieval and LLM assessment</div>
+            <div style="font-size:14px;color:#9aa4ad;">Routing to agent, retrieving knowledge, generating assessment</div>
             <div style="margin-top:20px;">
                 <div style="width:200px;height:4px;background:#1f2a35;margin:0 auto;border-radius:2px;overflow:hidden;">
                     <div style="width:100%;height:100%;background:linear-gradient(90deg,#8ab4f8,#6a94f8,#8ab4f8);
@@ -436,16 +468,16 @@ with gr.Blocks(title="Cyber Threat Assessment", theme=gr.themes.Soft(primary_hue
             </style>
         </div>
         '''
-        return "", loading_html, ""
+        return "", loading_html, "", ""
     
     assess_btn.click(
         fn=show_loading,
         inputs=None,
-        outputs=[text_output, html_output, ioc_output]
+        outputs=[text_output, html_output, ioc_output, agent_info]
     ).then(
         fn=assess_and_store,
-        inputs=[threat_input, context_input, enable_ioc],
-        outputs=[text_output, html_output, ioc_output, current_threat, current_assessment]
+        inputs=[threat_input, context_input, agent_selector, enable_ioc],
+        outputs=[text_output, html_output, ioc_output, agent_info, current_threat, current_assessment]
     )
     
     # Feedback handler

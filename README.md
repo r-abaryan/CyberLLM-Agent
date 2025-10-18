@@ -1,6 +1,7 @@
 # CyberXP Agent: Streamlined Cyber Threat Assessment Powered by LLaMA & Retrieval-Augmented Generation (RAG)
 
 Direct SFT training on cybersecurity datasets using Llama-3.2-1B-Instruct with vector-based RAG for enhanced threat assessment.
+
 **Trained model and limited demo of agent-environment can be found & tested via below links:
 * [Model: https://huggingface.co/abaryan/CyberXP_Agent_Llama_3.2_1B]
 * [HF-Space: https://huggingface.co/spaces/abaryan/CyberXP_AGENT_Llama_3.2]
