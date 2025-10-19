@@ -187,3 +187,12 @@ Steps:
 - Vector RAG with semantic similarity search
 - HTML visualization with SVG flow diagrams
 - FastAPI endpoint for integration
+
+Citation
+If you use this work, please cite:
+
+@software{skin_disease_progressive_bbox,
+  title={Progressive BBox Training for Skin Disease Diagnosis},
+  author={Abaryan},
+  year={2025}
+}
