@@ -189,10 +189,11 @@ Steps:
 - FastAPI endpoint for integration
 
 Citation
+
 If you use this work, please cite:
 
-@software{skin_disease_progressive_bbox,
-  title={Progressive BBox Training for Skin Disease Diagnosis},
+@software{CyberXP,
+  title={Streamlined Cyber Threat Assessment Powered by LLaMA & Retrieval-Augmented Generation (RAG)},
   author={Abaryan},
   year={2025}
 }
