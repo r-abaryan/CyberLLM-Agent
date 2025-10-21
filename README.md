@@ -1,200 +1,326 @@
-# CyberXP Agent: Streamlined Cyber Threat Assessment Powered by LLaMA & Retrieval-Augmented Generation (RAG)
+# CyberXP: AI-Powered Cyber Threat Assessment
 
-Direct SFT training on cybersecurity datasets using Llama-3.2-1B-Instruct with vector-based RAG for enhanced threat assessment.
+Multi-agent cybersecurity assessment system using fine-tuned LLaMA 3.2 with RAG, IOC extraction, and SIEM integration.
 
-**Trained model and limited demo of agent-environment can be found & tested via below links:
-* [Model: https://huggingface.co/abaryan/CyberXP_Agent_Llama_3.2_1B]
-* [HF-Space: https://huggingface.co/spaces/abaryan/CyberXP_AGENT_Llama_3.2]
+**🚀 Live Demo**: [Hugging Face Space](https://huggingface.co/spaces/abaryan/CyberXP_AGENT_Llama_3.2)  
+**🤖 Model**: [abaryan/CyberXP_Agent_Llama_3.2_1B](https://huggingface.co/abaryan/CyberXP_Agent_Llama_3.2_1B)
 
-## Quick Start
-
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. Run SFT fine-tuning:
-   ```bash
-   python src/cyberllm_sft.py
-   ```
-
-3. Use the agent:
-   ```bash
-   # Normal RAG (keyword-based)
-   python src/cyber_agent.py --threat "Suspicious PowerShell downloads" --context "Windows domain"
-   
-   # Vector RAG (semantic similarity)
-   python src/cyber_agent_vec.py --threat "Suspicious PowerShell downloads" --context "Windows domain"
-   ```
-
-### Options
-
-- `--model_path` (default ./cyberllm_sft_model)
-- `--device` (default auto)
-- `--kb_path` (default ./knowledge_base) points to local .md/.txt files used for retrieval
-- `--public_kb` includes knowledge_base/PUBLIC_KB.md into retrieval
-- `--simple` uses simplified sections: Severity, Immediate Actions, Recovery, Preventive Measures
-- `--save_html` saves HTML report to specified path
-- `--enable_ioc` extracts Indicators of Compromise (IOCs) from assessment
-- `--save_iocs` saves extracted IOCs to JSON file
-- `--feedback_log` logs assessments with user feedback to JSONL file
+---
 
 <img width="3028" height="1472" alt="IOC + Feedback" src="https://github.com/user-attachments/assets/752c856c-735d-4128-92c6-b733708e4247" />
-## Available Features
 
-### Current Implementation
-- **Fine-tuned Model**: Llama-3.2-1B-Instruct specialized for cybersecurity
-- **CLI Agent**: Command-line interface for threat assessment
-- **Interactive Mode**: Conversational threat analysis
-- **Vector RAG**: Semantic similarity search over knowledge base
-- **HTML Reports**: Styled assessment reports with visualizations
-- **IOC Extraction**: Automated extraction of IPs, domains, hashes, paths, users
-- **Feedback Logging**: Collect user feedback for continuous improvement
-- **REST API**: FastAPI endpoint for integration
-- **HF Spaces**: Gradio web interface deployment
-- **Severity Rubric**: Consistent threat classification
-- **Structured Outputs**: Standardized response format
 
-### Vector-based Retrieval-Augmented Generation (RAG)
-
-Drop security notes, playbooks, or standards into ./knowledge_base (Markdown or text). The agent uses semantic similarity search to retrieve relevant context.
-
-How it works:
-- Model remains the decision-maker
-- Sentence transformers encode documents and queries into embeddings
-- Cosine similarity finds semantically relevant passages
-- Retrieved content shown as "Relevant knowledge" for grounding
-- Much better context matching than keyword search
-
-### Vector RAG Features
-
-- **Semantic Search**: Uses sentence transformers for meaning-based retrieval
-- **Similarity Scoring**: Shows confidence scores for retrieved documents
-- **Configurable Thresholds**: Adjust minimum similarity and number of results
-- **Multiple Models**: Support for different sentence transformer models
-- **Dynamic Updates**: Add new documents without full re-encoding
-
-### REST API
-
-Serve the agent as an API for tools, dashboards, or automation.
-
-Run the server:
 ```bash
-uvicorn cyber_api:app --host 0.0.0.0 --port 8000 --workers 1
+# Install dependencies
+pip install -r requirements.txt
+
+# Run web interface
+cd HF_Space
+python gradio_app.py
 ```
 
-Assess a threat:
+Access at http://localhost:7860
+
+---
+
+## Features
+
+### Core Capabilities
+- **Fine-tuned Model** - Llama-3.2-1B specialized for cybersecurity
+- **Multi-Agent System** - Triage & Analysis agents with smart routing
+- **Custom Agents** - Create specialized agents with custom prompts
+- **Vector RAG** - Semantic search over security knowledge base
+- **IOC Extraction** - Auto-extract IPs, domains, hashes, paths, users
+- **Multiple Export Formats** - JSON, CSV, STIX 2.1
+- **SIEM Integration** - Splunk & Microsoft Sentinel connectors
+- **HTML Reports** - Styled reports with SVG flow diagrams
+- **Feedback System** - User ratings for continuous improvement
+
+### Interfaces
+- **Gradio Web UI** - Single agent + collaborative modes
+- **CLI** - Command-line automation
+- **REST API** - FastAPI endpoint for integrations
+- **Cloud Ready** - Deployed to Hugging Face Spaces
+
+---
+
+## Usage
+
+### Web Interface
 ```bash
-curl -s -X POST http://localhost:8000/assess \
-  -H "Content-Type: application/json" \
-  -d '{
-    "threat": "Exfiltration via HTTPS to rare domain",
-    "context": "Linux servers; outbound proxy"
-  }'
+cd HF_Space
+python gradio_app.py
 ```
 
-### HTML Reports
-
-Generate styled HTML reports from assessments.
-
-CLI auto-save:
+### Command Line
 ```bash
-python cyber_agent.py --threat "Suspicious PowerShell download" \
-  --context "Windows estate; Defender enabled" \
-  --kb_path "./knowledge_base" \
-  --save_html "./reports"
-```
+# Basic assessment
+python src/cyber_agent_vec.py \
+  --threat "Suspicious PowerShell downloads" \
+  --context "Windows domain"
 
-HTML includes:
-- Linear Steps view for Immediate Actions with numbered badges
-- Flow Diagram: inline SVG showing left-to-right sequence
-- IOC Section: Extracted indicators displayed as formatted JSON (when enabled)
-
-### IOC Extraction & Feedback
-
-Extract Indicators of Compromise and log user feedback for model improvement.
-
-Enable IOC extraction:
-```bash
-python src/cyber_agent_vec.py --threat "Malware detected on endpoint" \
-  --context "Windows 10 workstation" \
+# With IOC extraction
+python src/cyber_agent_vec.py \
+  --threat "Ransomware on file server" \
   --enable_ioc \
-  --save_iocs "./iocs"
+  --save_html "./reports"
+
+# With feedback logging
+python src/cyber_agent_vec.py \
+  --threat "Data exfiltration detected" \
+  --feedback_log "./logs/feedback.jsonl"
 ```
 
-Log feedback for continuous improvement:
-```bash
-python src/cyber_agent_vec.py --feedback_log "./logs/feedback.jsonl"
+### SIEM Integration
+```python
+from src.integrations import SplunkConnector
+
+# Connect to Splunk
+splunk = SplunkConnector(
+    host="splunk.company.com",
+    token="your-token"
+)
+
+# Fetch alerts
+alerts = splunk.fetch_notable_events(max_results=10)
+
+# Push assessment results
+splunk.push_assessment(assessment_data, iocs)
 ```
 
-IOC extraction identifies:
-- IP addresses (IPv4)
-- Domain names
-- File hashes (MD5, SHA1, SHA256)
-- File paths (Windows and Unix)
-- Usernames
+### Programmatic Use
+```python
+from src.agents import AgentRouter
 
-Feedback logging captures:
-- Assessment timestamp
-- Threat description and context
-- Model output
-- User feedback and rating (1-5)
+router = AgentRouter(llm=your_model)
 
-### Hugging Face Spaces
+result = router.route(
+    threat="Ransomware detected on file server",
+    context="Production environment",
+    agent_type="auto"  # or "triage", "analysis"
+)
 
-Deploy to HF Spaces using the Gradio app in HF_Space/ folder with full IOC extraction and feedback capabilities.
+print(result['output'])
+```
 
-Features:
-- Tabbed interface: Assessment Report, Raw Text, Extracted IOCs
-- Real-time IOC extraction with toggle
-- Feedback submission with rating (1-5) and comments
-- Logs stored in feedback_logs/feedback.jsonl
-- Example scenarios for quick testing
+---
 
-Steps:
-1. Create new Gradio Space under your HF account
-2. Upload gradio_app.py, requirements.txt, knowledge_base/, and src/ folder
-3. Set MODEL_PATH in gradio_app.py to your model repo or local path
-4. Space auto-builds and serves at port 7860
+## Options
 
-## Roadmap: From Fine-tuning to Agentic AI
+### CLI Arguments
+- `--model_path` - Path to model (default: ./cyberllm_sft_model)
+- `--device` - Device for inference (default: auto)
+- `--kb_path` - Knowledge base directory (default: ./knowledge_base)
+- `--public_kb` - Include public knowledge base
+- `--simple` - Use simplified output sections
+- `--save_html` - Save HTML report to path
+- `--enable_ioc` - Extract Indicators of Compromise
+- `--save_iocs` - Save IOCs to JSON file
+- `--feedback_log` - Log feedback to JSONL file
 
-### Phase 1: Foundation (Current)
-1. **Model Fine-tuning**: Llama-3.2-1B-Instruct → Cybersecurity specialist
-2. **Basic Agent**: LangChain wrapper with structured prompting
-3. **Knowledge Integration**: RAG with local playbooks and procedures
-4. **Output Generation**: HTML reports with visualizations
+### Configuration
+Edit `src/config.py` to enable/disable features:
+```python
+FEATURES = {
+    "multi_agent": True,
+    "custom_agents": True,
+    "vector_rag": True,
+    "ioc_extraction": True,
+    "feedback_logging": True,
+    "export_json": True,
+    "export_csv": True,
+    "export_stix": True,
+}
 
-### Phase 2: Multi-Agent Architecture (Planned)
-5. **IOC Extraction & Feedback**: ✓ Automated indicator extraction with user feedback collection
-6. **Specialized Agents**: Triage, Analysis, Containment, Forensics
-7. **Agent Orchestration**: Communication protocols and routing
-8. **Decision Trees**: Automated agent selection and coordination
-
-### Phase 3: Production Integration (Future)
-9. **External Connectors**: SIEM/SOAR integration (Splunk, QRadar)
-10. **Threat Intelligence**: Real-time feeds (VirusTotal, OTX, MISP)
-11. **Automated Response**: Containment and isolation procedures
-12. **Multi-modal Analysis**: Logs, network traffic, file samples
-13. **Behavioral Profiling**: User/entity anomaly detection
-14. **Compliance Reporting**: Audit trails and regulatory compliance
-15. **Continuous Learning**: Model retraining on new threats
-
-## Technical Notes
-
-- Uses langchain-huggingface integration (no deprecation warnings)
-- Structured outputs with consistent section headers
-- Vector RAG with semantic similarity search
-- HTML visualization with SVG flow diagrams
-- FastAPI endpoint for integration
-
-Citation
-
-If you use this work, please cite:
-```bibtex
-@software{CyberXP,
-  title={Streamlined Cyber Threat Assessment Powered by LLaMA & Retrieval-Augmented Generation (RAG)},
-  author={Abaryan},
-  year={2025}
+INTEGRATIONS = {
+    "splunk": False,  # Enable after configuration
+    "sentinel": False,
 }
 ```
+
+---
+
+## Agents
+
+### Built-in Agents
+
+**Triage Agent**
+- Fast severity assessment
+- Immediate containment actions
+- Escalation recommendations
+
+**Analysis Agent**
+- Deep threat investigation
+- IOC extraction and mapping
+- Recovery and prevention steps
+
+**Auto Router**
+- Keyword-based agent selection
+- Manual override supported
+
+### Custom Agents
+Create specialized agents via web UI or programmatically:
+```python
+from src.agents import CustomAgent
+
+agent = CustomAgent(
+    name="Ransomware Specialist",
+    role="Expert in ransomware incidents",
+    system_prompt="You are a ransomware expert...",
+    llm=your_model
+)
+```
+
+---
+
+## Export Formats
+
+### JSON
+```bash
+python src/exporters/exporter.py --format json
+```
+API-friendly structured data with metadata
+
+### CSV
+```bash
+python src/exporters/exporter.py --format csv
+```
+Spreadsheet-compatible for analysis
+
+### STIX 2.1
+```bash
+python src/exporters/exporter.py --format stix
+```
+Standard threat intelligence format for TIP integration
+
+---
+
+## SIEM Integration (New)
+
+### Splunk
+```python
+from src.integrations import SplunkConnector
+
+splunk = SplunkConnector(
+    host="splunk.example.com",
+    token="your-splunk-token"
+)
+
+# Fetch notable events
+events = splunk.fetch_notable_events(max_results=50)
+
+# Push assessment
+splunk.push_assessment(assessment, iocs)
+
+# Search IOC context
+context = splunk.search_ioc_context("192.168.1.100", "ip")
+```
+
+### Microsoft Sentinel
+```python
+from src.integrations import SentinelConnector
+
+sentinel = SentinelConnector(
+    workspace_id="your-workspace-id",
+    subscription_id="your-sub-id",
+    resource_group="your-rg",
+    tenant_id="your-tenant",
+    client_id="your-client-id",
+    client_secret="your-secret"
+)
+
+# Get high-severity incidents
+incidents = sentinel.get_incidents(severity="High")
+
+# Update incident with assessment
+sentinel.update_incident(
+    incident_id="incident-123",
+    comment="CyberXP Assessment: Critical - Immediate action required"
+)
+
+# Create threat indicator
+sentinel.create_threat_indicator(
+    ioc_value="malicious.com",
+    ioc_type="domain-name",
+    confidence=90
+)
+```
+
+---
+
+## Development Stages
+
+### ✅ Stage 1: Foundation
+- Model fine-tuning
+- Basic agent with RAG
+- HTML report generation
+
+### ✅ Stage 2: Multi-Agent System  
+- Triage & Analysis agents
+- Custom agent framework
+- IOC extraction & export
+- Feedback collection
+- Collaborative mode
+
+### 🚀 Stage 3: Enterprise Integration (Current)
+- ✅ Splunk connector
+- ✅ Microsoft Sentinel connector
+- 🔄 VirusTotal API integration
+- 🔄 Webhook notifications (Slack, Teams)
+- 📋 Automated response playbooks
+- 📋 Compliance report templates
+
+---
+
+## Project Structure
+
+```
+CyberXP/
+├── src/
+│   ├── agents/              # Multi-agent system
+│   ├── integrations/        # SIEM/SOAR connectors (NEW)
+│   ├── exporters/           # JSON/CSV/STIX export
+│   ├── rag/                 # Vector RAG
+│   ├── utils/               # IOC extraction
+│   └── config.py            # Configuration
+├── HF_Space/
+│   ├── gradio_app.py        # Single agent UI
+│   └── gradio_collaborative.py  # Multi-agent pipeline
+├── knowledge_base/          # Security playbooks
+├── custom_agents/           # User-created agents
+└── feedback_logs/           # User feedback
+```
+
+---
+
+## Technical Details
+
+- **Model**: Llama-3.2-1B-Instruct fine-tuned on cybersecurity data
+- **Framework**: LangChain for LLM orchestration
+- **RAG**: Sentence-transformers + FAISS for semantic search
+- **UI**: Gradio for web interface
+- **API**: FastAPI for REST endpoints
+- **Export**: JSON, CSV, STIX 2.1 standard formats
+- **Response Time**: 2-5 seconds (LLM-dominated)
+- **Deployment**: Local, cloud, or containerized
+
+---
+
+## Citation
+
+If you use this work, please cite:
+
+```bibtex
+@software{CyberXP,
+  title={CyberXP: AI-Powered Cyber Threat Assessment with Multi-Agent Architecture},
+  author={Abaryan},
+  year={2025},
+  url={https://github.com/r-abaryan/CyberLLM-Agent}
+}
+```
+
+---
+
+**Version**: 2.0  
+**License**: MIT  
+**Status**: Production Ready

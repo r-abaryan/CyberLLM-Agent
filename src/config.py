@@ -8,24 +8,76 @@ from typing import Dict, Any
 
 
 class FeatureConfig:
-    """Feature flags for advanced capabilities"""
+    """Feature flags and configuration for CyberXP system"""
     
+    # Feature toggles
     FEATURES: Dict[str, bool] = {
         "multi_agent": True,
+        "custom_agents": True,
+        "vector_rag": True,
+        "ioc_extraction": True,
+        "feedback_logging": True,
         "export_json": True,
         "export_csv": True,
         "export_stix": True,
+        "html_reports": True,
     }
     
+    # External integrations (Stage 3)
+    INTEGRATIONS: Dict[str, bool] = {
+        "splunk": False,
+        "sentinel": False,
+        "virustotal": False,
+        "misp": False, 
+    }
+    
+    # SIEM Configuration
+    SPLUNK_CONFIG: Dict[str, Any] = {
+        "host": os.getenv("SPLUNK_HOST", ""),
+        "port": int(os.getenv("SPLUNK_PORT", "8089")),
+        "token": os.getenv("SPLUNK_TOKEN", ""),
+        "index": os.getenv("SPLUNK_INDEX", "cyberxp_assessments"),
+        "verify_ssl": os.getenv("SPLUNK_VERIFY_SSL", "false").lower() == "true",
+    }
+    
+    SENTINEL_CONFIG: Dict[str, Any] = {
+        "workspace_id": os.getenv("SENTINEL_WORKSPACE_ID", ""),
+        "subscription_id": os.getenv("SENTINEL_SUBSCRIPTION_ID", ""),
+        "resource_group": os.getenv("SENTINEL_RESOURCE_GROUP", ""),
+        "tenant_id": os.getenv("SENTINEL_TENANT_ID", ""),
+        "client_id": os.getenv("SENTINEL_CLIENT_ID", ""),
+        "client_secret": os.getenv("SENTINEL_CLIENT_SECRET", ""),
+    }
+    
+    # Webhook configurations
     WEBHOOK_URLS: Dict[str, str] = {
         "slack": os.getenv("SLACK_WEBHOOK_URL", ""),
         "teams": os.getenv("TEAMS_WEBHOOK_URL", ""),
+        "pagerduty": os.getenv("PAGERDUTY_WEBHOOK_URL", ""),
     }
     
+    # API keys for threat intelligence (Stage 3)
+    API_KEYS: Dict[str, str] = {
+        "virustotal": os.getenv("VIRUSTOTAL_API_KEY", ""),
+        "abuseipdb": os.getenv("ABUSEIPDB_API_KEY", ""),
+        "shodan": os.getenv("SHODAN_API_KEY", ""),
+    }
+    
+    # Model configuration
     MODEL_CONFIG: Dict[str, Any] = {
-        "production_version": "v1.0",
-        "experimental_version": "v1.1",
-        "ab_test_ratio": 0.1,
+        "production_version": "v2.0",
+        "model_path": "abaryan/CyberXP_Agent_Llama_3.2_1B",
+        "max_tokens": 512,
+        "temperature": 0.7,
+        "top_p": 0.9,
+    }
+    
+    # System limits
+    LIMITS: Dict[str, int] = {
+        "max_custom_agents": 50,
+        "max_feedback_entries": 10000,
+        "max_kb_documents": 1000,
+        "max_ioc_per_assessment": 100,
     }
     
     @classmethod
