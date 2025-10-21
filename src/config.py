@@ -56,9 +56,14 @@ class FeatureConfig:
         "pagerduty": os.getenv("PAGERDUTY_WEBHOOK_URL", ""),
     }
     
-    # API keys for threat intelligence (Stage 3)
+    # Threat Intelligence Configuration
+    VIRUSTOTAL_CONFIG: Dict[str, Any] = {
+        "api_key": os.getenv("VIRUSTOTAL_API_KEY", ""),
+        "rate_limit": int(os.getenv("VIRUSTOTAL_RATE_LIMIT", "4")),  # Free tier: 4/min
+    }
+    
+    # API keys for other services (future)
     API_KEYS: Dict[str, str] = {
-        "virustotal": os.getenv("VIRUSTOTAL_API_KEY", ""),
         "abuseipdb": os.getenv("ABUSEIPDB_API_KEY", ""),
         "shodan": os.getenv("SHODAN_API_KEY", ""),
     }

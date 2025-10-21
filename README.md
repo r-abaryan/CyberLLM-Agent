@@ -246,6 +246,32 @@ sentinel.create_threat_indicator(
 )
 ```
 
+### VirusTotal (FREE Tier Available)
+```python
+from src.integrations import VirusTotalConnector
+
+vt = VirusTotalConnector(
+    api_key="your-free-api-key",
+    rate_limit=4  # Free: 4 req/min
+)
+
+# Enrich extracted IOCs
+iocs = {
+    "ips": ["192.168.1.100"],
+    "domains": ["suspicious.com"],
+    "hashes": ["abc123..."]
+}
+
+enriched = vt.bulk_enrich_iocs(iocs)
+
+# Get summary
+for ip_data in enriched['ips']:
+    print(vt.get_summary(ip_data))
+    # Output: "🚨 Malicious 192.168.1.100: 15/90 engines flagged"
+```
+
+**Get Free API Key**: https://www.virustotal.com/gui/join-us
+
 ---
 
 ## Development Stages
@@ -262,10 +288,10 @@ sentinel.create_threat_indicator(
 - Feedback collection
 - Collaborative mode
 
-### 🚀 Stage 3: Enterprise Integration (Current)
-- ✅ Splunk connector
-- ✅ Microsoft Sentinel connector
-- 🔄 VirusTotal API integration
+### ✅ Stage 3: Enterprise Integration (Current)
+- ✅ Splunk connector - Fetch alerts & push assessments
+- ✅ Microsoft Sentinel connector - Incident management
+- ✅ VirusTotal API - IOC reputation lookup (FREE tier available)
 - 🔄 Webhook notifications (Slack, Teams)
 - 📋 Automated response playbooks
 - 📋 Compliance report templates

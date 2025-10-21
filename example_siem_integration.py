@@ -1,10 +1,10 @@
 """
-Example: SIEM Integration with CyberXP
-Demonstrates how to connect CyberXP with Splunk or Sentinel
+Example: SIEM & Threat Intelligence Integration with CyberXP
+Demonstrates how to connect CyberXP with Splunk, Sentinel, and VirusTotal
 """
 
 import os
-from src.integrations import SplunkConnector, SentinelConnector
+from src.integrations import SplunkConnector, SentinelConnector, VirusTotalConnector
 from src.agents import AgentRouter
 from src.config import FeatureConfig
 
@@ -159,9 +159,65 @@ Preventive Measures:
     print("\n" + "=" * 60)
 
 
+def example_virustotal_workflow():
+    """Example workflow with VirusTotal"""
+    print("=" * 60)
+    print("VIRUSTOTAL THREAT INTELLIGENCE EXAMPLE")
+    print("=" * 60)
+    
+    # Initialize VirusTotal connector
+    vt = VirusTotalConnector(
+        api_key=os.getenv("VIRUSTOTAL_API_KEY", ""),
+        rate_limit=4  # Free tier limit
+    )
+    
+    # Test connection
+    if not vt.test_connection():
+        print("❌ Failed to connect to VirusTotal")
+        print("   Get free API key from: https://www.virustotal.com/gui/join-us")
+        return
+    
+    print("✅ Connected to VirusTotal (Free tier: 4 req/min)\n")
+    
+    # Simulate extracted IOCs from CyberXP assessment
+    print("📊 Enriching IOCs extracted from threat assessment...\n")
+    
+    extracted_iocs = {
+        "ips": ["8.8.8.8", "1.1.1.1"],
+        "domains": ["google.com", "suspicious-domain.xyz"],
+        "hashes": ["44d88612fea8a8f36de82e1278abb02f"],  # EICAR test file
+        "urls": []
+    }
+    
+    # Bulk enrich all IOCs
+    enriched = vt.bulk_enrich_iocs(extracted_iocs)
+    
+    # Display results
+    print("IP Addresses:")
+    for ip_data in enriched['ips']:
+        print(f"  {vt.get_summary(ip_data)}")
+        if ip_data.get('malicious', 0) > 0:
+            print(f"    ⚠️ Country: {ip_data.get('country')}, ASN: {ip_data.get('asn')}")
+    
+    print("\nDomains:")
+    for domain_data in enriched['domains']:
+        print(f"  {vt.get_summary(domain_data)}")
+        if domain_data.get('malicious', 0) > 0:
+            print(f"    ⚠️ Reputation: {domain_data.get('reputation')}")
+    
+    print("\nFile Hashes:")
+    for hash_data in enriched['hashes']:
+        print(f"  {vt.get_summary(hash_data)}")
+        if hash_data.get('malicious', 0) > 0:
+            print(f"    🚨 {hash_data.get('malicious')}/{hash_data.get('total_engines')} engines detected as malicious")
+            print(f"    File type: {hash_data.get('file_type')}")
+    
+    print("\n" + "=" * 60)
+
+
 def main():
-    """Run SIEM integration examples"""
-    print("\n🔨 CyberXP SIEM Integration Examples\n")
+    """Run SIEM and Threat Intelligence integration examples"""
+    print("\n🔨 CyberXP Integration Examples\n")
     
     # Check configuration
     if FeatureConfig.INTEGRATIONS.get("splunk"):
@@ -178,32 +234,55 @@ def main():
         print("ℹ️  Sentinel integration disabled in config")
         print("   Set INTEGRATIONS['sentinel'] = True and configure credentials\n")
     
+    print()
+    
+    if FeatureConfig.INTEGRATIONS.get("virustotal"):
+        example_virustotal_workflow()
+    else:
+        print("ℹ️  VirusTotal integration disabled in config")
+        print("   Set INTEGRATIONS['virustotal'] = True and get API key\n")
+    
     print("\n" + "=" * 60)
     print("SETUP INSTRUCTIONS")
     print("=" * 60)
     print("""
-To enable SIEM integration:
+To enable integrations:
 
-1. Set environment variables:
+1. Get API keys/credentials:
    
-   For Splunk:
+   VirusTotal (FREE):
+   - Sign up: https://www.virustotal.com/gui/join-us
+   - Get API key from account settings
+   - Free tier: 4 requests/min, 500/day
+   
+   Splunk (Enterprise/Free):
+   - Get HEC token from Splunk admin
+   - Or use Splunk Free (500MB/day)
+   
+   Sentinel (Azure):
+   - Create service principal in Azure AD
+   - Get workspace ID and credentials
+
+2. Set environment variables:
+   
+   export VIRUSTOTAL_API_KEY="your-api-key"
    export SPLUNK_HOST="splunk.company.com"
-   export SPLUNK_TOKEN="your-splunk-hec-token"
-   
-   For Sentinel:
+   export SPLUNK_TOKEN="your-splunk-token"
    export SENTINEL_WORKSPACE_ID="your-workspace-id"
-   export SENTINEL_SUBSCRIPTION_ID="your-subscription-id"
-   export SENTINEL_RESOURCE_GROUP="your-resource-group"
-   export SENTINEL_TENANT_ID="your-tenant-id"
-   export SENTINEL_CLIENT_ID="your-client-id"
-   export SENTINEL_CLIENT_SECRET="your-client-secret"
+   # ... (see config.py for all options)
 
-2. Enable integration in src/config.py:
+3. Enable integrations in src/config.py:
+   INTEGRATIONS['virustotal'] = True
    INTEGRATIONS['splunk'] = True
    INTEGRATIONS['sentinel'] = True
 
-3. Run this script:
+4. Run this script:
    python example_siem_integration.py
+
+PRICING:
+- VirusTotal: FREE (4 req/min) or Premium ($$$)
+- CyberXP: FREE (open source)
+- Splunk/Sentinel: Enterprise products (companies usually have them)
 """)
 
 
