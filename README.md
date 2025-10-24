@@ -175,22 +175,13 @@ agent = CustomAgent(
 
 ## Export Formats
 
-### JSON
-```bash
-python src/exporters/exporter.py --format json
-```
-API-friendly structured data with metadata
-
-### CSV
-```bash
-python src/exporters/exporter.py --format csv
-```
+### JSON/ CSV/ STIX
 Spreadsheet-compatible for analysis
 
-### STIX 2.1
 ```bash
-python src/exporters/exporter.py --format stix
+python src/exporters/exporter.py --format json/csv/stix
 ```
+API-friendly structured data with metadata
 Standard threat intelligence format for TIP integration
 
 ---
@@ -329,7 +320,7 @@ CyberXP/
 - **Export**: JSON, CSV, STIX 2.1 standard formats
 - **Response Time**: 2-5 seconds (LLM-dominated)
 - **Deployment**: Local, cloud, or containerized
-
+- **Integration**: SEIM, SPLUNK
 ---
 
 ## Citation

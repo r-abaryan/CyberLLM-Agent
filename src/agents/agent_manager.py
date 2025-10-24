@@ -130,15 +130,7 @@ class AgentManager:
         return sorted(agents, key=lambda x: x["name"].lower())
     
     def delete_agent(self, agent_name: str) -> bool:
-        """
-        Delete a custom agent.
-        
-        Args:
-            agent_name: Name of the agent to delete
-        
-        Returns:
-            True if successful, False otherwise
-        """
+        """Delete a custom agent."""
         try:
             safe_name = self._sanitize_filename(agent_name)
             file_path = self.storage_dir / f"{safe_name}.json"
