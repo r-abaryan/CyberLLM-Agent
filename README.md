@@ -44,7 +44,7 @@ Access at http://localhost:7860
 
 ---
 
-## Usage
+## Quick Start
 
 ### Web Interface
 ```bash
@@ -54,53 +54,51 @@ python gradio_app.py
 
 ### Command Line
 ```bash
-# Basic assessment
-python src/cyber_agent_vec.py \
-  --threat "Suspicious PowerShell downloads" \
-  --context "Windows domain"
-
-# With IOC extraction
 python src/cyber_agent_vec.py \
   --threat "Ransomware on file server" \
   --enable_ioc \
   --save_html "./reports"
-
-# With feedback logging
-python src/cyber_agent_vec.py \
-  --threat "Data exfiltration detected" \
-  --feedback_log "./logs/feedback.jsonl"
 ```
+
+---
+
+## Usage
 
 ### SIEM Integration
 ```python
-from src.integrations import SplunkConnector
+from src.integrations import SplunkConnector, SentinelConnector, VirusTotalConnector
 
-# Connect to Splunk
-splunk = SplunkConnector(
-    host="splunk.company.com",
-    token="your-token"
-)
-
-# Fetch alerts
+# Splunk - Fetch alerts & push assessments
+splunk = SplunkConnector(host="splunk.company.com", token="your-token")
 alerts = splunk.fetch_notable_events(max_results=10)
-
-# Push assessment results
 splunk.push_assessment(assessment_data, iocs)
+
+# Sentinel - Incident management
+sentinel = SentinelConnector(workspace_id="...", client_id="...", client_secret="...")
+incidents = sentinel.get_incidents(severity="High")
+sentinel.update_incident("incident-123", "CyberXP Assessment: Critical")
+
+# VirusTotal - IOC enrichment (FREE tier available)
+vt = VirusTotalConnector(api_key="your-key")
+enriched = vt.bulk_enrich_iocs(iocs)
 ```
 
-### Programmatic Use
+### Webhook Notifications (Optional)
 ```python
-from src.agents import AgentRouter
+# Optional: Set environment variables to enable
+# export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/URL"
+# export TEAMS_WEBHOOK_URL="https://your-domain.webhook.office.com/..."
 
-router = AgentRouter(llm=your_model)
+from src.integrations.webhook_notifier import send_alert
 
-result = router.route(
-    threat="Ransomware detected on file server",
-    context="Production environment",
-    agent_type="auto"  # or "triage", "analysis"
+# Send alert (only if webhooks configured)
+send_alert(
+    threat="Critical vulnerability detected",
+    iocs=["192.168.1.100", "malicious.exe"],
+    assessment="Immediate containment required",
+    severity="high"
 )
-
-print(result['output'])
+# If no webhooks configured → silently skipped (optional feature)
 ```
 
 ---
@@ -159,7 +157,6 @@ INTEGRATIONS = {
 - Manual override supported
 
 ### Custom Agents
-Create specialized agents via web UI or programmatically:
 ```python
 from src.agents import CustomAgent
 
@@ -261,16 +258,12 @@ for ip_data in enriched['ips']:
     # Output: "🚨 Malicious 192.168.1.100: 15/90 engines flagged"
 ```
 
-**Get Free API Key**: https://www.virustotal.com/gui/join-us
-
 ---
 
-## Development Stages
+## Development Status
 
 ### ✅ Stage 1: Foundation
-- Model fine-tuning
-- Basic agent with RAG
-- HTML report generation
+- Model fine-tuning, basic agent with RAG, HTML reports
 
 ### ✅ Stage 2: Multi-Agent System  
 - Triage & Analysis agents
@@ -283,7 +276,7 @@ for ip_data in enriched['ips']:
 - ✅ Splunk connector - Fetch alerts & push assessments
 - ✅ Microsoft Sentinel connector - Incident management
 - ✅ VirusTotal API - IOC reputation lookup (FREE tier available)
-- 🔄 Webhook notifications (Slack, Teams)
+- ✅ Webhook notifications (Slack, Teams, Discord) - Optional
 - 📋 Automated response playbooks
 - 📋 Compliance report templates
 
