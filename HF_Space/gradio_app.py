@@ -316,11 +316,9 @@ print("Model loaded successfully!")
 
 print("Initializing multi-agent router...")
 agent_router = AgentRouter(llm=llm)
-print("Agent router initialized successfully!")
 
 print("Initializing vector RAG...")
 vector_rag = create_vector_rag(kb_path="./knowledge_base", model_name="all-MiniLM-L6-v2")
-print("Vector RAG initialized successfully!")
 
 print("Initializing agent manager...")
 agent_manager = AgentManager(storage_dir="custom_agents")
@@ -483,7 +481,6 @@ def assess_threat(threat: str, context: str, agent_type: str = "auto", custom_ag
     # Generate HTML report with IOCs
     # For "both" mode, extract raw outputs without headers for proper SVG generation
     if agent_type == "both" and len(results) >= 2:
-        # Remove the "## Agent Name" headers to get clean output for SVG parsing
         triage_clean = results[0].replace("## Triage & Containment Agent\n\n", "")
         analysis_clean = results[1].replace("## Analysis & Recovery Agent\n\n", "")
         # Merge actions from both agents for comprehensive SVG

@@ -35,7 +35,7 @@ Access at http://localhost:7860
 - **SIEM Integration** - Splunk & Microsoft Sentinel connectors
 - **HTML Reports** - Styled reports with SVG flow diagrams
 - **Feedback System** - User ratings for continuous improvement
-
+- **WebHook Notifier** - Automated notification (Slack, Teams, Discord)
 ### Interfaces
 - **Gradio Web UI** - Single agent + collaborative modes
 - **CLI** - Command-line automation
