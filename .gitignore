@@ -15,3 +15,4 @@ test_all_features.py
 src/agents/__pycache__/agent_manager.cpython-312.pyc
 src/agents/__pycache__/custom_agent.cpython-312.pyc
 src/agents/__pycache__/prompt_templates.cpython-312.pyc
+HF_Space/learning_gradio_test.py

@@ -314,6 +314,7 @@ CyberXP/
 - **Response Time**: 2-5 seconds (LLM-dominated)
 - **Deployment**: Local, cloud, or containerized
 - **Integration**: SEIM, SPLUNK
+- **WebHook**: WeboHook Notification
 ---
 
 ## Citation
