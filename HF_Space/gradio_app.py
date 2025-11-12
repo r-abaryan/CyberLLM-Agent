@@ -3,6 +3,7 @@ Gradio UI for Cyber Threat Assessment (HF Space)
 
 Standalone app that uses a fine-tuned cybersecurity LLM to assess threats
 and provide structured incident response recommendations.
+Fully functional and ready to use including custom agents, vector RAG, and IOC extraction, feedback system, and export formats.
 """
 
 import os

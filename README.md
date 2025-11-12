@@ -183,57 +183,6 @@ Standard threat intelligence format for TIP integration
 
 ---
 
-## SIEM Integration (New)
-
-### Splunk
-```python
-from src.integrations import SplunkConnector
-
-splunk = SplunkConnector(
-    host="splunk.example.com",
-    token="your-splunk-token"
-)
-
-# Fetch notable events
-events = splunk.fetch_notable_events(max_results=50)
-
-# Push assessment
-splunk.push_assessment(assessment, iocs)
-
-# Search IOC context
-context = splunk.search_ioc_context("192.168.1.100", "ip")
-```
-
-### Microsoft Sentinel
-```python
-from src.integrations import SentinelConnector
-
-sentinel = SentinelConnector(
-    workspace_id="your-workspace-id",
-    subscription_id="your-sub-id",
-    resource_group="your-rg",
-    tenant_id="your-tenant",
-    client_id="your-client-id",
-    client_secret="your-secret"
-)
-
-# Get high-severity incidents
-incidents = sentinel.get_incidents(severity="High")
-
-# Update incident with assessment
-sentinel.update_incident(
-    incident_id="incident-123",
-    comment="CyberXP Assessment: Critical - Immediate action required"
-)
-
-# Create threat indicator
-sentinel.create_threat_indicator(
-    ioc_value="malicious.com",
-    ioc_type="domain-name",
-    confidence=90
-)
-```
-
 ### VirusTotal (FREE Tier Available)
 ```python
 from src.integrations import VirusTotalConnector
