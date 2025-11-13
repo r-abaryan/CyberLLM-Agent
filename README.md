@@ -3,7 +3,7 @@
 A Multi-Agent Cybersecurity Assessment System with RAG, IOC Extraction, SIEM, and User-Defined Agents.
 
 **🚀 Live Demo**: [Hugging Face Space](https://huggingface.co/spaces/abaryan/CyberXP_AGENT_Llama_3.2)  
-**🤖 Model**: [abaryan/CyberXP_Agent_Llama_3.2_1B](https://huggingface.co/abaryan/CyberXP_Agent_Llama_3.2_1B)
+**🤖 Model**: [abaryan/CyberXP_Agent_Llama_3.2_1B](https://huggingface.co/abaryan/CyberXP_Agent_Llama_3.2_1B)  
 **📜 Published Paper**: [TechRxiv](https://doi.org/10.36227/techrxiv.176297583.39945193/v)
 ---
 
