@@ -2,9 +2,9 @@
 
 A Multi-Agent Cybersecurity Assessment System with RAG, IOC Extraction, SIEM, and User-Defined Agents.
 
-*🚀 Live Demo*: [Hugging Face Space](https://huggingface.co/spaces/abaryan/CyberXP_AGENT_Llama_3.2)  
-*🤖 Model*: [abaryan/CyberXP_Agent_Llama_3.2_1B](https://huggingface.co/abaryan/CyberXP_Agent_Llama_3.2_1B)  
-*📜 Published Paper*: [TechRxiv](https://doi.org/10.36227/techrxiv.176297583.39945193/v2)
+Live Demo: [Hugging Face Space](https://huggingface.co/spaces/abaryan/CyberXP_AGENT_Llama_3.2)  
+Model: [abaryan/CyberXP_Agent_Llama_3.2_1B](https://huggingface.co/abaryan/CyberXP_Agent_Llama_3.2_1B)  
+Published Paper: [TechRxiv](https://doi.org/10.36227/techrxiv.176297583.39945193/v2)
 ---
 
 <img width="3028" height="1472" alt="IOC + Feedback" src="https://github.com/user-attachments/assets/752c856c-735d-4128-92c6-b733708e4247" />
@@ -44,24 +44,6 @@ Access at http://localhost:7860
 
 ---
 
-## Quick Start
-
-### Web Interface
-```bash
-cd HF_Space
-python gradio_app.py
-```
-
-### Command Line
-```bash
-python src/cyber_agent_vec.py \
-  --threat "Ransomware on file server" \
-  --enable_ioc \
-  --save_html "./reports"
-```
-
----
-
 ## Usage
 
 ### SIEM Integration
@@ -81,59 +63,6 @@ sentinel.update_incident("incident-123", "CyberXP Assessment: Critical")
 # VirusTotal - IOC enrichment (FREE tier available)
 vt = VirusTotalConnector(api_key="your-key")
 enriched = vt.bulk_enrich_iocs(iocs)
-```
-
-### Webhook Notifications (Optional)
-```python
-# Optional: Set environment variables to enable
-# export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/URL"
-# export TEAMS_WEBHOOK_URL="https://your-domain.webhook.office.com/..."
-
-from src.integrations.webhook_notifier import send_alert
-
-# Send alert (only if webhooks configured)
-send_alert(
-    threat="Critical vulnerability detected",
-    iocs=["192.168.1.100", "malicious.exe"],
-    assessment="Immediate containment required",
-    severity="high"
-)
-# If no webhooks configured → silently skipped (optional feature)
-```
-
----
-
-## Options
-
-### CLI Arguments
-- `--model_path` - Path to model (default: ./cyberllm_sft_model)
-- `--device` - Device for inference (default: auto)
-- `--kb_path` - Knowledge base directory (default: ./knowledge_base)
-- `--public_kb` - Include public knowledge base
-- `--simple` - Use simplified output sections
-- `--save_html` - Save HTML report to path
-- `--enable_ioc` - Extract Indicators of Compromise
-- `--save_iocs` - Save IOCs to JSON file
-- `--feedback_log` - Log feedback to JSONL file
-
-### Configuration
-Edit `src/config.py` to enable/disable features:
-```python
-FEATURES = {
-    "multi_agent": True,
-    "custom_agents": True,
-    "vector_rag": True,
-    "ioc_extraction": True,
-    "feedback_logging": True,
-    "export_json": True,
-    "export_csv": True,
-    "export_stix": True,
-}
-
-INTEGRATIONS = {
-    "splunk": False,  # Enable after configuration
-    "sentinel": False,
-}
 ```
 
 ---
@@ -168,44 +97,6 @@ agent = CustomAgent(
 )
 ```
 
----
-
-## Export Formats
-
-### JSON/ CSV/ STIX
-Spreadsheet-compatible for analysis
-
-```bash
-python src/exporters/exporter.py --format json/csv/stix
-```
-API-friendly structured data with metadata
-Standard threat intelligence format for TIP integration
-
----
-
-### VirusTotal (FREE Tier Available)
-```python
-from src.integrations import VirusTotalConnector
-
-vt = VirusTotalConnector(
-    api_key="your-free-api-key",
-    rate_limit=4  # Free: 4 req/min
-)
-
-# Enrich extracted IOCs
-iocs = {
-    "ips": ["192.168.1.100"],
-    "domains": ["suspicious.com"],
-    "hashes": ["abc123..."]
-}
-
-enriched = vt.bulk_enrich_iocs(iocs)
-
-# Get summary
-for ip_data in enriched['ips']:
-    print(vt.get_summary(ip_data))
-    # Output: "🚨 Malicious 192.168.1.100: 15/90 engines flagged"
-```
 
 ---
 
@@ -250,21 +141,6 @@ CyberXP/
 └── feedback_logs/           # User feedback
 ```
 
----
-
-## Technical Details
-
-- **Model**: Llama-3.2-1B-Instruct fine-tuned on cybersecurity data
-- **Framework**: LangChain for LLM orchestration
-- **RAG**: Sentence-transformers + FAISS for semantic search
-- **UI**: Gradio for web interface
-- **API**: FastAPI for REST endpoints
-- **Export**: JSON, CSV, STIX 2.1 standard formats
-- **Response Time**: 2-5 seconds (LLM-dominated)
-- **Deployment**: Local, cloud, or containerized
-- **Integration**: SEIM, SPLUNK
-- **WebHook**: WeboHook Notification
----
 
 ## Citation
 
