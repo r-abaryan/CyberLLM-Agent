@@ -27,7 +27,7 @@ class CollaborativeAgentSystem:
         Returns combined output from both agents
         """
         
-        # Stage 1: Triage
+        # Stage 1: Triage - Quick severity assessment and initial response recommendations
         triage_result = self.triage_agent.process(threat, context)
         triage_output = triage_result['output']
         severity = triage_result.get('severity', 'Medium')
@@ -36,7 +36,7 @@ class CollaborativeAgentSystem:
         analysis_result = self.analysis_agent.process(threat, context)
         analysis_output = analysis_result['output']
         
-        # Combine outputs
+        # Combine outputs - Create a cohesive assessment report
         combined_output = self._combine_outputs(triage_output, analysis_output, severity)
         
         return {

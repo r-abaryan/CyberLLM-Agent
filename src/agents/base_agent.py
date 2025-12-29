@@ -26,7 +26,7 @@ class BaseAgent(ABC):
         Process a threat and return assessment
         
         Args:
-            threat: Threat description
+            threat: Cyber Threat description
             context: Additional context
         
         Returns:

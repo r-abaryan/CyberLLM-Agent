@@ -78,7 +78,7 @@ Be technical but actionable. Think end-to-end: investigate → recover → preve
 
 **INDICATORS OF COMPROMISE (IOCs):**
 - Extract from logs and forensic analysis
-- Check threat description for embedded IOCs: {threat[:100]}...
+- Check threat description for embedded IOCs: {threat[:200]}...
 - Network connections, file hashes, registry changes
 
 **MITRE ATT&CK:** T1566 (Phishing), T1059 (Command Execution), T1071 (Application Layer Protocol)
