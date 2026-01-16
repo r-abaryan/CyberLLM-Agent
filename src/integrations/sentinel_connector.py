@@ -77,10 +77,21 @@ class SentinelConnector:
         )
         
         self.access_token = None
+        logger.debug("Sentinel connector initialized")
     
+    @retry_with_backoff(max_retries=2, initial_delay=1.0)
     def _get_access_token(self) -> bool:
-        """Authenticate and get Azure AD access token"""
+        """
+        Authenticate and get Azure AD access token.
+        
+        Returns:
+            True if authentication successful
+        
+        Raises:
+            AuthenticationError: If authentication fails
+        """
         try:
+            logger.debug("Authenticating with Azure AD")
             token_url = f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
             
             data = {
@@ -94,14 +105,21 @@ class SentinelConnector:
             
             if response.status_code == 200:
                 self.access_token = response.json().get("access_token")
+                logger.info("Successfully authenticated with Azure AD")
                 return True
             
-            print(f"Authentication failed: {response.text}")
-            return False
+            error_msg = f"Azure AD authentication failed: {response.text}"
+            logger.error(error_msg)
+            raise AuthenticationError(error_msg)
             
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error during authentication: {str(e)}")
+            raise ConnectionError(f"Failed to connect to Azure AD: {str(e)}") from e
+        except AuthenticationError:
+            raise
         except Exception as e:
-            print(f"Error getting access token: {e}")
-            return False
+            logger.error(f"Unexpected error during authentication: {str(e)}", exc_info=True)
+            raise AuthenticationError(f"Authentication error: {str(e)}") from e
     
     def _get_headers(self) -> Dict[str, str]:
         """Get authorization headers"""
@@ -114,10 +132,18 @@ class SentinelConnector:
         }
     
     def test_connection(self) -> bool:
-        """Test connectivity to Sentinel"""
+        """
+        Test connectivity to Sentinel.
+        
+        Returns:
+            True if connection successful
+        
+        Raises:
+            ConnectionError: If connection fails
+        """
         try:
             if not self._get_access_token():
-                return False
+                raise ConnectionError("Failed to obtain access token")
             
             # Test by listing workspace
             url = f"{self.base_url}?api-version=2021-06-01"
@@ -127,11 +153,22 @@ class SentinelConnector:
                 timeout=30
             )
             
-            return response.status_code == 200
+            if response.status_code == 200:
+                logger.info(f"Successfully connected to Sentinel workspace: {self.workspace_id}")
+                return True
+            else:
+                error_msg = f"Sentinel connection test failed with status {response.status_code}"
+                logger.error(error_msg)
+                raise ConnectionError(error_msg)
             
+        except (ConnectionError, AuthenticationError):
+            raise
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error testing Sentinel connection: {str(e)}")
+            raise ConnectionError(f"Network error: {str(e)}") from e
         except Exception as e:
-            print(f"Connection test failed: {e}")
-            return False
+            logger.error(f"Unexpected error testing connection: {str(e)}", exc_info=True)
+            raise ConnectionError(f"Connection test failed: {str(e)}") from e
     
     def get_incidents(
         self,
@@ -160,8 +197,9 @@ class SentinelConnector:
             )
             
             if response.status_code != 200:
-                print(f"Failed to fetch incidents: {response.text}")
-                return []
+                error_msg = f"Failed to fetch incidents: {response.text}"
+                logger.error(error_msg)
+                raise APIError(error_msg, status_code=response.status_code)
             
             incidents = response.json().get("value", [])
             
@@ -172,11 +210,18 @@ class SentinelConnector:
             if status:
                 incidents = [i for i in incidents if i.get("properties", {}).get("status") == status]
             
-            return incidents[:max_results]
+            incidents = incidents[:max_results]
+            logger.info(f"Retrieved {len(incidents)} incidents from Sentinel")
+            return incidents
             
+        except (APIError, ConnectionError, AuthenticationError):
+            raise
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error fetching incidents: {str(e)}")
+            raise ConnectionError(f"Network error: {str(e)}") from e
         except Exception as e:
-            print(f"Error fetching incidents: {e}")
-            return []
+            logger.error(f"Unexpected error fetching incidents: {str(e)}", exc_info=True)
+            raise APIError(f"Unexpected error: {str(e)}") from e
     
     def update_incident(
         self,
@@ -220,8 +265,9 @@ class SentinelConnector:
                 )
                 
                 if response.status_code not in [200, 201]:
-                    print(f"Failed to add comment: {response.text}")
-                    return False
+                    error_msg = f"Failed to add comment: {response.text}"
+                    logger.error(error_msg)
+                    raise APIError(error_msg, status_code=response.status_code)
             
             # Update status/severity if provided
             if status or severity:
@@ -250,13 +296,24 @@ class SentinelConnector:
                     timeout=30
                 )
                 
-                return response.status_code in [200, 201]
+                if response.status_code not in [200, 201]:
+                    error_msg = f"Failed to update incident: {response.text}"
+                    logger.error(error_msg)
+                    raise APIError(error_msg, status_code=response.status_code)
+                
+                logger.info(f"Successfully updated incident: {incident_id}")
+                return True
             
             return True
             
+        except (APIError, ConnectionError, AuthenticationError):
+            raise
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error updating incident: {str(e)}")
+            raise ConnectionError(f"Network error: {str(e)}") from e
         except Exception as e:
-            print(f"Error updating incident: {e}")
-            return False
+            logger.error(f"Unexpected error updating incident: {str(e)}", exc_info=True)
+            raise APIError(f"Unexpected error: {str(e)}") from e
     
     def create_threat_indicator(
         self,
@@ -304,40 +361,54 @@ class SentinelConnector:
                 timeout=30
             )
             
-            return response.status_code in [200, 201]
+            if response.status_code in [200, 201]:
+                logger.info(f"Successfully created threat indicator: {ioc_value}")
+                return True
+            else:
+                error_msg = f"Failed to create threat indicator: {response.text}"
+                logger.error(error_msg)
+                raise APIError(error_msg, status_code=response.status_code)
             
+        except (APIError, ConnectionError, AuthenticationError):
+            raise
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error creating threat indicator: {str(e)}")
+            raise ConnectionError(f"Network error: {str(e)}") from e
         except Exception as e:
-            print(f"Error creating threat indicator: {e}")
-            return False
+            logger.error(f"Unexpected error creating threat indicator: {str(e)}", exc_info=True)
+            raise APIError(f"Unexpected error: {str(e)}") from e
 
 
 # Example usage
 if __name__ == "__main__":
-    # Test connection
-    sentinel = SentinelConnector(
-        workspace_id="your-workspace-id",
-        subscription_id="your-subscription-id",
-        resource_group="your-resource-group",
-        tenant_id="your-tenant-id",
-        client_id="your-client-id",
-        client_secret="your-client-secret"
-    )
+    import os
     
-    if sentinel.test_connection():
-        print("✓ Connected to Sentinel")
+    try:
+        # Test connection
+        sentinel = SentinelConnector(
+            workspace_id=os.getenv("SENTINEL_WORKSPACE_ID", "your-workspace-id"),
+            subscription_id=os.getenv("SENTINEL_SUBSCRIPTION_ID", "your-subscription-id"),
+            resource_group=os.getenv("SENTINEL_RESOURCE_GROUP", "your-resource-group"),
+            tenant_id=os.getenv("SENTINEL_TENANT_ID", "your-tenant-id"),
+            client_id=os.getenv("SENTINEL_CLIENT_ID", "your-client-id"),
+            client_secret=os.getenv("SENTINEL_CLIENT_SECRET", "your-client-secret")
+        )
         
-        # Fetch high severity incidents
-        incidents = sentinel.get_incidents(severity="High", max_results=10)
-        print(f"✓ Found {len(incidents)} high-severity incidents")
-        
-        # Create test threat indicator
-        if sentinel.create_threat_indicator(
-            ioc_value="192.168.1.100",
-            ioc_type="ipv4-addr",
-            confidence=80,
-            description="Test IOC from CyberXP"
-        ):
-            print("✓ Threat indicator created")
-    else:
-        print("✗ Connection failed")
+        if sentinel.test_connection():
+            logger.info("✓ Connected to Sentinel")
+            
+            # Fetch high severity incidents
+            incidents = sentinel.get_incidents(severity="High", max_results=10)
+            logger.info(f"✓ Found {len(incidents)} high-severity incidents")
+            
+            # Create test threat indicator
+            if sentinel.create_threat_indicator(
+                ioc_value="192.168.1.100",
+                ioc_type="ipv4-addr",
+                confidence=80,
+                description="Test IOC from CyberXP"
+            ):
+                logger.info("✓ Threat indicator created")
+    except Exception as e:
+        logger.error(f"✗ Connection failed: {str(e)}", exc_info=True)
 
