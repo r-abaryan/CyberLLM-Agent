@@ -12,6 +12,11 @@ from typing import List, Tuple, Optional
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from ..utils.logger import get_logger
+from ..utils.exceptions import RAGError, ModelError
+
+logger = get_logger(__name__)
+
 
 class VectorRAG:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2", kb_path: str = "./HF_Space/knowledge_base"):
@@ -33,16 +38,18 @@ class VectorRAG:
     def _load_model(self):
         """Load sentence transformer model."""
         try:
+            logger.info(f"Loading sentence transformer model: {self.model_name}")
             self.encoder = SentenceTransformer(self.model_name)
-            print(f"Loaded sentence transformer: {self.model_name}")
+            logger.info(f"Successfully loaded sentence transformer: {self.model_name}")
         except Exception as e:
-            print(f"Failed to load model {self.model_name}: {e}")
-            raise
+            error_msg = f"Failed to load model {self.model_name}: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            raise ModelError(error_msg) from e
     
     def _load_documents(self):
         """Load and encode all documents in knowledge base."""
         if not os.path.isdir(self.kb_path):
-            print(f"Knowledge base path not found: {self.kb_path}")
+            logger.warning(f"Knowledge base path not found: {self.kb_path}")
             return
         
         documents = []
@@ -57,20 +64,26 @@ class VectorRAG:
                 if content:
                     documents.append((fname, content))
             except Exception as e:
-                print(f"Error reading {fpath}: {e}")
+                logger.warning(f"Error reading {fpath}: {str(e)}")
                 continue
         
         if not documents:
-            print("No documents found in knowledge base")
+            logger.warning(f"No documents found in knowledge base: {self.kb_path}")
             return
         
         self.documents = documents
-        print(f"Loaded {len(documents)} documents from knowledge base")
+        logger.info(f"Loaded {len(documents)} documents from knowledge base")
         
         # Encode all documents
-        contents = [doc[1] for doc in documents]
-        self.embeddings = self.encoder.encode(contents, show_progress_bar=True)
-        print(f"Encoded {len(contents)} documents with {self.embeddings.shape[1]} dimensions")
+        try:
+            contents = [doc[1] for doc in documents]
+            logger.info("Encoding documents with sentence transformer...")
+            self.embeddings = self.encoder.encode(contents, show_progress_bar=True)
+            logger.info(f"Encoded {len(contents)} documents with {self.embeddings.shape[1]} dimensions")
+        except Exception as e:
+            error_msg = f"Failed to encode documents: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            raise RAGError(error_msg) from e
     
     def retrieve(self, query: str, k: int = 3, min_similarity: float = 0.3) -> List[Tuple[str, str, float]]:
         """
@@ -157,7 +170,7 @@ class VectorRAG:
         else:
             self.embeddings = np.vstack([self.embeddings, new_embedding])
         
-        print(f"Added document: {filename}")
+        logger.info(f"Added document to knowledge base: {filename}")
     
     def reload_documents(self):
         """Reload all documents from knowledge base."""

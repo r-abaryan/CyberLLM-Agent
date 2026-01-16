@@ -8,6 +8,12 @@ import json
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 
+from ..utils.logger import get_logger
+from ..utils.exceptions import ConnectionError, APIError, AuthenticationError
+from ..utils.retry import retry_with_backoff
+
+logger = get_logger(__name__)
+
 
 class SentinelConnector:
     """
@@ -39,7 +45,24 @@ class SentinelConnector:
             tenant_id: Azure AD tenant ID
             client_id: Service principal client ID
             client_secret: Service principal secret
+        
+        Raises:
+            ValueError: If required parameters are missing
         """
+        # Validate required parameters
+        required_params = {
+            "workspace_id": workspace_id,
+            "subscription_id": subscription_id,
+            "resource_group": resource_group,
+            "tenant_id": tenant_id,
+            "client_id": client_id,
+            "client_secret": client_secret
+        }
+        
+        missing = [k for k, v in required_params.items() if not v]
+        if missing:
+            raise ValueError(f"Missing required Sentinel parameters: {', '.join(missing)}")
+        
         self.workspace_id = workspace_id
         self.subscription_id = subscription_id
         self.resource_group = resource_group

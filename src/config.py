@@ -6,8 +6,18 @@ Toggle features on/off without code changes
 import os
 import warnings
 from typing import Dict, Any, Optional
-from .utils.logger import get_logger
-from .utils.exceptions import ConfigurationError
+
+# Import utilities - handle both direct and relative imports
+try:
+    from .utils.logger import get_logger
+    from .utils.exceptions import ConfigurationError
+except ImportError:
+    # Fallback for when config is imported directly
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent))
+    from utils.logger import get_logger
+    from utils.exceptions import ConfigurationError
 
 logger = get_logger(__name__)
 
@@ -192,9 +202,16 @@ config = FeatureConfig()
 
 
 if __name__ == "__main__":
-    print("Current Feature Configuration:")
-    print("-" * 40)
+    logger.info("Current Feature Configuration:")
+    logger.info("-" * 40)
     for feature, enabled in config.FEATURES.items():
         status = "[ENABLED]" if enabled else "[DISABLED]"
-        print(f"{feature:25s} {status}")
+        logger.info(f"{feature:25s} {status}")
+    
+    # Validate credentials
+    logger.info("\nCredential Validation:")
+    validation = config.validate_credentials()
+    for service, valid in validation.items():
+        status = "✓" if valid else "✗"
+        logger.info(f"  {service}: {status}")
 

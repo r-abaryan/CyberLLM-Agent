@@ -8,6 +8,12 @@ import time
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
+from ..utils.logger import get_logger
+from ..utils.exceptions import APIError, RateLimitError, AuthenticationError
+from ..utils.retry import retry_with_backoff
+
+logger = get_logger(__name__)
+
 
 class VirusTotalConnector:
     """
@@ -32,7 +38,13 @@ class VirusTotalConnector:
         Args:
             api_key: VirusTotal API key
             rate_limit: Requests per minute (4 for free tier)
+        
+        Raises:
+            ValueError: If API key is empty
         """
+        if not api_key:
+            raise ValueError("VirusTotal API key is required")
+        
         self.api_key = api_key
         self.base_url = "https://www.virustotal.com/api/v3"
         self.headers = {
@@ -43,6 +55,7 @@ class VirusTotalConnector:
         # Rate limiting
         self.rate_limit = rate_limit
         self.request_times = []
+        logger.debug(f"VirusTotal connector initialized with rate limit: {rate_limit}/min")
     
     def _rate_limit_wait(self):
         """Implement rate limiting"""
@@ -55,25 +68,49 @@ class VirusTotalConnector:
         if len(self.request_times) >= self.rate_limit:
             wait_time = 60 - (now - self.request_times[0])
             if wait_time > 0:
-                print(f"Rate limit reached. Waiting {wait_time:.1f}s...")
+                logger.warning(f"VirusTotal rate limit reached. Waiting {wait_time:.1f}s...")
                 time.sleep(wait_time)
                 self.request_times = []
         
         self.request_times.append(now)
     
     def test_connection(self) -> bool:
-        """Test API key validity"""
+        """
+        Test API key validity.
+        
+        Returns:
+            True if API key is valid
+        
+        Raises:
+            AuthenticationError: If API key is invalid
+        """
         try:
+            logger.debug("Testing VirusTotal API key validity")
             # Simple endpoint to verify key
             response = requests.get(
                 f"{self.base_url}/users/{self.api_key}",
                 headers=self.headers,
                 timeout=10
             )
-            return response.status_code == 200
+            
+            if response.status_code == 200:
+                logger.info("VirusTotal API key is valid")
+                return True
+            elif response.status_code == 401:
+                logger.error("VirusTotal API key is invalid")
+                raise AuthenticationError("Invalid VirusTotal API key")
+            else:
+                logger.error(f"VirusTotal connection test failed with status {response.status_code}")
+                raise APIError(f"API returned status {response.status_code}", status_code=response.status_code)
+                
+        except (AuthenticationError, APIError):
+            raise
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error testing VirusTotal connection: {str(e)}")
+            raise APIError(f"Network error: {str(e)}") from e
         except Exception as e:
-            print(f"Connection test failed: {e}")
-            return False
+            logger.error(f"Unexpected error testing connection: {str(e)}", exc_info=True)
+            raise APIError(f"Connection test failed: {str(e)}") from e
     
     def enrich_ip(self, ip_address: str) -> Dict[str, Any]:
         """
@@ -91,7 +128,11 @@ class VirusTotalConnector:
             url = f"{self.base_url}/ip_addresses/{ip_address}"
             response = requests.get(url, headers=self.headers, timeout=30)
             
-            if response.status_code != 200:
+            if response.status_code == 429:
+                logger.warning(f"VirusTotal rate limit exceeded for {ip_address}")
+                raise RateLimitError(f"Rate limit exceeded: {response.status_code}")
+            elif response.status_code != 200:
+                logger.warning(f"VirusTotal API returned status {response.status_code} for {ip_address}")
                 return {"error": f"API returned {response.status_code}"}
             
             data = response.json().get("data", {})
@@ -114,7 +155,11 @@ class VirusTotalConnector:
                 "source": "VirusTotal"
             }
             
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error enriching IP {ip_address}: {str(e)}")
+            return {"error": f"Network error: {str(e)}"}
         except Exception as e:
+            logger.error(f"Unexpected error enriching IP {ip_address}: {str(e)}", exc_info=True)
             return {"error": str(e)}
     
     def enrich_domain(self, domain: str) -> Dict[str, Any]:
@@ -133,7 +178,11 @@ class VirusTotalConnector:
             url = f"{self.base_url}/domains/{domain}"
             response = requests.get(url, headers=self.headers, timeout=30)
             
-            if response.status_code != 200:
+            if response.status_code == 429:
+                logger.warning(f"VirusTotal rate limit exceeded for {ip_address}")
+                raise RateLimitError(f"Rate limit exceeded: {response.status_code}")
+            elif response.status_code != 200:
+                logger.warning(f"VirusTotal API returned status {response.status_code} for {ip_address}")
                 return {"error": f"API returned {response.status_code}"}
             
             data = response.json().get("data", {})
@@ -155,7 +204,11 @@ class VirusTotalConnector:
                 "source": "VirusTotal"
             }
             
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error enriching IP {ip_address}: {str(e)}")
+            return {"error": f"Network error: {str(e)}"}
         except Exception as e:
+            logger.error(f"Unexpected error enriching IP {ip_address}: {str(e)}", exc_info=True)
             return {"error": str(e)}
     
     def enrich_hash(self, file_hash: str) -> Dict[str, Any]:
@@ -174,7 +227,11 @@ class VirusTotalConnector:
             url = f"{self.base_url}/files/{file_hash}"
             response = requests.get(url, headers=self.headers, timeout=30)
             
-            if response.status_code != 200:
+            if response.status_code == 429:
+                logger.warning(f"VirusTotal rate limit exceeded for {ip_address}")
+                raise RateLimitError(f"Rate limit exceeded: {response.status_code}")
+            elif response.status_code != 200:
+                logger.warning(f"VirusTotal API returned status {response.status_code} for {ip_address}")
                 return {"error": f"API returned {response.status_code}"}
             
             data = response.json().get("data", {})
@@ -197,7 +254,11 @@ class VirusTotalConnector:
                 "source": "VirusTotal"
             }
             
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error enriching IP {ip_address}: {str(e)}")
+            return {"error": f"Network error: {str(e)}"}
         except Exception as e:
+            logger.error(f"Unexpected error enriching IP {ip_address}: {str(e)}", exc_info=True)
             return {"error": str(e)}
     
     def enrich_url(self, url: str) -> Dict[str, Any]:
@@ -220,7 +281,11 @@ class VirusTotalConnector:
             api_url = f"{self.base_url}/urls/{url_id}"
             response = requests.get(api_url, headers=self.headers, timeout=30)
             
-            if response.status_code != 200:
+            if response.status_code == 429:
+                logger.warning(f"VirusTotal rate limit exceeded for {ip_address}")
+                raise RateLimitError(f"Rate limit exceeded: {response.status_code}")
+            elif response.status_code != 200:
+                logger.warning(f"VirusTotal API returned status {response.status_code} for {ip_address}")
                 return {"error": f"API returned {response.status_code}"}
             
             data = response.json().get("data", {})
@@ -240,7 +305,11 @@ class VirusTotalConnector:
                 "source": "VirusTotal"
             }
             
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error enriching IP {ip_address}: {str(e)}")
+            return {"error": f"Network error: {str(e)}"}
         except Exception as e:
+            logger.error(f"Unexpected error enriching IP {ip_address}: {str(e)}", exc_info=True)
             return {"error": str(e)}
     
     def bulk_enrich_iocs(self, iocs: Dict[str, List[str]]) -> Dict[str, List[Dict]]:
@@ -313,16 +382,20 @@ class VirusTotalConnector:
 if __name__ == "__main__":
     import os
     
-    # Initialize connector
-    vt = VirusTotalConnector(
-        api_key=os.getenv("VIRUSTOTAL_API_KEY", "your-api-key-here")
-    )
-    
-    # Test connection
-    if vt.test_connection():
-        print("✅ Connected to VirusTotal\n")
-    else:
-        print("❌ Connection failed - check API key\n")
+    try:
+        # Initialize connector
+        vt = VirusTotalConnector(
+            api_key=os.getenv("VIRUSTOTAL_API_KEY", "your-api-key-here")
+        )
+        
+        # Test connection
+        if vt.test_connection():
+            logger.info("✅ Connected to VirusTotal\n")
+        else:
+            logger.error("❌ Connection failed - check API key\n")
+            exit(1)
+    except Exception as e:
+        logger.error(f"❌ Connection failed: {str(e)}", exc_info=True)
         exit(1)
     
     # Test IP enrichment
@@ -334,47 +407,55 @@ if __name__ == "__main__":
     print(vt.get_summary(ip_result))
     print(f"Country: {ip_result.get('country')}")
     print(f"ASN: {ip_result.get('asn')}")
-    print()
-    
+    print("")
+        
     # Test domain enrichment
     print("=" * 60)
     print("Domain Enrichment")
     print("=" * 60)
-    
+        
     domain_result = vt.enrich_domain("google.com")  # Should be clean
     print(vt.get_summary(domain_result))
     print(f"Reputation: {domain_result.get('reputation')}")
-    print()
-    
-    # Test hash enrichment (example malware hash)
-    print("=" * 60)
+    print("")
+        
+        # Test hash enrichment (example malware hash)
+    logger.info("=" * 60)
     print("File Hash Enrichment")
     print("=" * 60)
-    
+        
     hash_result = vt.enrich_hash("44d88612fea8a8f36de82e1278abb02f")  # EICAR test file
     print(vt.get_summary(hash_result))
     print(f"File type: {hash_result.get('file_type')}")
-    print()
-    
-    # Bulk enrichment
+    print("")
+        
+        # Bulk enrichment
     print("=" * 60)
     print("Bulk IOC Enrichment")
     print("=" * 60)
-    
+        
     test_iocs = {
-        "ips": ["8.8.8.8", "1.1.1.1"],
-        "domains": ["google.com", "github.com"],
-        "hashes": [],
-        "urls": []
-    }
-    
+            "ips": ["8.8.8.8", "1.1.1.1"],
+            "domains": ["google.com", "github.com"],
+            "hashes": [],
+            "urls": []
+        }
+        
     enriched = vt.bulk_enrich_iocs(test_iocs)
-    
+        
     print(f"\nEnriched {len(enriched['ips'])} IPs")
     for ip_data in enriched['ips']:
         print(f"  {vt.get_summary(ip_data)}")
-    
+        
     print(f"\nEnriched {len(enriched['domains'])} domains")
     for domain_data in enriched['domains']:
         print(f"  {vt.get_summary(domain_data)}")
-
+        
+    print(f"\nEnriched {len(enriched['hashes'])} hashes")
+    for hash_data in enriched['hashes']:
+        print(f"  {vt.get_summary(hash_data)}")
+        
+    print(f"\nEnriched {len(enriched['urls'])} URLs")
+    for url_data in enriched['urls']:
+        print(f"  {vt.get_summary(url_data)}")
+        
