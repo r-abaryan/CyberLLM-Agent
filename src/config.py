@@ -4,7 +4,12 @@ Toggle features on/off without code changes
 """
 
 import os
-from typing import Dict, Any
+import warnings
+from typing import Dict, Any, Optional
+from .utils.logger import get_logger
+from .utils.exceptions import ConfigurationError
+
+logger = get_logger(__name__)
 
 
 class FeatureConfig:
@@ -37,7 +42,8 @@ class FeatureConfig:
         "port": int(os.getenv("SPLUNK_PORT", "8089")),
         "token": os.getenv("SPLUNK_TOKEN", ""),
         "index": os.getenv("SPLUNK_INDEX", "cyberxp_assessments"),
-        "verify_ssl": os.getenv("SPLUNK_VERIFY_SSL", "false").lower() == "true",
+        # SECURITY: Default to True for SSL verification in production
+        "verify_ssl": os.getenv("SPLUNK_VERIFY_SSL", "true").lower() == "true",
     }
     
     SENTINEL_CONFIG: Dict[str, Any] = {
@@ -107,6 +113,79 @@ class FeatureConfig:
         """Disable a feature at runtime"""
         if feature in cls.FEATURES:
             cls.FEATURES[feature] = False
+    
+    @classmethod
+    def validate_credentials(cls) -> Dict[str, bool]:
+        """
+        Validate that required credentials are present.
+        
+        Returns:
+            Dictionary mapping service names to validation status
+        """
+        validation_results = {}
+        
+        # Check Splunk credentials if enabled
+        if cls.INTEGRATIONS.get("splunk", False):
+            has_token = bool(cls.SPLUNK_CONFIG.get("token"))
+            has_host = bool(cls.SPLUNK_CONFIG.get("host"))
+            validation_results["splunk"] = has_token and has_host
+            
+            if not validation_results["splunk"]:
+                logger.warning("Splunk integration enabled but credentials missing")
+            
+            # Security warning for SSL
+            if not cls.SPLUNK_CONFIG.get("verify_ssl", True):
+                logger.warning(
+                    "SECURITY WARNING: SSL verification is disabled for Splunk. "
+                    "This is insecure and should only be used in development."
+                )
+                warnings.warn(
+                    "SSL verification disabled for Splunk - security risk!",
+                    UserWarning,
+                    stacklevel=2
+                )
+        
+        # Check Sentinel credentials if enabled
+        if cls.INTEGRATIONS.get("sentinel", False):
+            required_fields = [
+                "workspace_id", "subscription_id", "resource_group",
+                "tenant_id", "client_id", "client_secret"
+            ]
+            has_all = all(bool(cls.SENTINEL_CONFIG.get(field)) for field in required_fields)
+            validation_results["sentinel"] = has_all
+            
+            if not validation_results["sentinel"]:
+                logger.warning("Sentinel integration enabled but credentials missing")
+        
+        # Check VirusTotal credentials if enabled
+        if cls.INTEGRATIONS.get("virustotal", False):
+            has_key = bool(cls.VIRUSTOTAL_CONFIG.get("api_key"))
+            validation_results["virustotal"] = has_key
+            
+            if not validation_results["virustotal"]:
+                logger.warning("VirusTotal integration enabled but API key missing")
+        
+        return validation_results
+    
+    @classmethod
+    def mask_credentials(cls, config_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create a safe copy of config with masked credentials.
+        
+        Args:
+            config_dict: Configuration dictionary
+        
+        Returns:
+            Dictionary with credentials masked
+        """
+        masked = config_dict.copy()
+        sensitive_keys = ["token", "password", "client_secret", "api_key"]
+        
+        for key in sensitive_keys:
+            if key in masked and masked[key]:
+                masked[key] = "***MASKED***"
+        
+        return masked
 
 
 config = FeatureConfig()
