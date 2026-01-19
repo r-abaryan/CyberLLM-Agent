@@ -79,7 +79,7 @@ class AgentRouter:
                 selected = self.analysis_agent
                 reason = "detailed_description"
         
-        print(f"🤖 Auto-routed to: {selected.name} (reason: {reason})")
+        print(f" Agent Auto-routed to: {selected.name} (reason: {reason})")
         return selected
     
     def get_available_agents(self) -> Dict[str, str]:

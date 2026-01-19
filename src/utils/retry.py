@@ -9,6 +9,12 @@ import time
 import functools
 from typing import Callable, Type, Tuple, Optional
 from .exceptions import APIError, RateLimitError, ConnectionError
+
+try:
+    import requests
+    RequestException = requests.exceptions.RequestException
+except ImportError:
+    RequestException = Exception
 from .logger import get_logger
 
 logger = get_logger(__name__)
@@ -19,7 +25,7 @@ def retry_with_backoff(
     initial_delay: float = 1.0,
     max_delay: float = 60.0,
     exponential_base: float = 2.0,
-    retryable_exceptions: Tuple[Type[Exception], ...] = (APIError, ConnectionError, RateLimitError),
+    retryable_exceptions: Tuple[Type[Exception], ...] = (APIError, ConnectionError, RateLimitError, RequestException),
     on_retry: Optional[Callable] = None
 ):
     """
