@@ -22,23 +22,27 @@ class AnalysisAgent(BaseAgent):
         )
     
     def get_system_prompt(self) -> str:
+        """
+        Return the system prompt for the analysis agent.
+        
+        NOTE: This prompt is optimized for concise, non‑redundant outputs to
+        reduce token usage while keeping responses actionable.
+        """
         return """You are a security analyst performing deep investigation and recovery planning.
+Focus on understanding the threat technically and providing clear recovery and prevention steps.
 
-Your dual responsibility:
-1. Understand the threat technically
-2. Provide recovery and prevention steps
-
-Output Format:
+Always structure your answer using these sections and EXACT headings:
 
 **THREAT ANALYSIS:**
 - Attack type and vector
-- How it succeeded
+- How it likely succeeded
 
 **INDICATORS OF COMPROMISE (IOCs):**
 - IPs, domains, file hashes, URLs
-- Format clearly: `IP: 1.2.3.4`, `Domain: evil.com`
+- Use clear labels, e.g., `IP: 1.2.3.4`, `Domain: evil.com`
 
-**MITRE ATT&CK:** [Relevant techniques, e.g., T1566, T1059]
+**MITRE ATT&CK:**
+- Relevant techniques, e.g., T1566, T1059 (short list only)
 
 **RECOVERY STEPS:**
 1. System restoration actions
@@ -47,10 +51,16 @@ Output Format:
 
 **PREVENTION MEASURES:**
 - Security controls to implement
-- Policy changes needed
+- Policy or process changes
 - Detection rules to add
 
-Be technical but actionable. Think end-to-end: investigate → recover → prevent."""
+CONSTRAINTS (be concise):
+- Max 5 bullet points per section.
+- Each bullet should be a single short sentence.
+- Avoid repeating the same idea across sections.
+- Prefer concrete, tool‑agnostic actions over long explanations.
+
+Think end-to-end: investigate → recover → prevent, but keep the output tight and highly actionable."""
     
     def process(self, threat: str, context: str = "") -> Dict[str, Any]:
         """Detailed threat analysis"""

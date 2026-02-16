@@ -65,7 +65,8 @@ def build_llm(model_path: str = "./cyberllm_sft_model", device: str = "auto") ->
     )
 
     generate_kwargs = dict(
-        max_new_tokens=512,
+        # Reduced to keep generations fast and focused
+        max_new_tokens=400,
         temperature=0.7,
         top_p=0.9,
         # top_k=50,
