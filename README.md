@@ -2,9 +2,11 @@
 
 A Multi-Agent Cybersecurity Assessment System with RAG, IOC Extraction, SIEM, and User-Defined Agents.
 
+```bash
 Live Demo: [Hugging Face Space](https://huggingface.co/spaces/abaryan/CyberXP_AGENT_Llama_3.2)  
 Model: [abaryan/CyberXP_Agent_Llama_3.2_1B](https://huggingface.co/abaryan/CyberXP_Agent_Llama_3.2_1B)  
 Published Paper: [TechRxiv](https://doi.org/10.36227/techrxiv.176297583.39945193/v2)
+```
 ---
 
 <img width="3028" height="1472" alt="IOC + Feedback" src="https://github.com/user-attachments/assets/752c856c-735d-4128-92c6-b733708e4247" />
@@ -97,30 +99,6 @@ agent = CustomAgent(
 )
 ```
 
-
----
-
-## Development Status
-
-### ✅ Stage 1: Foundation
-- Model fine-tuning, basic agent with RAG, HTML reports
-
-### ✅ Stage 2: Multi-Agent System  
-- Triage & Analysis agents
-- Custom agent framework
-- IOC extraction & export
-- Feedback collection
-- Collaborative mode
-
-### ✅ Stage 3: Enterprise Integration (Current)
-- ✅ Splunk connector - Fetch alerts & push assessments
-- ✅ Microsoft Sentinel connector - Incident management
-- ✅ VirusTotal API - IOC reputation lookup (FREE tier available)
-- ✅ Webhook notifications (Slack, Teams, Discord) - Optional
-- 📋 Automated response playbooks
-- 📋 Compliance report templates
-
----
 
 ## Project Structure
 
